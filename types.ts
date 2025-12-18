@@ -22,6 +22,7 @@ export interface Todo {
   completed: boolean;
   remindMe?: boolean;
   reminderTime?: string; // Format HH:mm
+  createdAt: number;
 }
 
 export interface CalendarEvent {
@@ -36,4 +37,6 @@ export interface CalendarEvent {
   description?: string;
   remindMe?: boolean;
   reminderMinutes?: number;
+  soundUrl?: string;
+  isExternal?: boolean; // Flaga dla zsynchronizowanych wydarzeń
 }

@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Todo, TodoCategory } from '../types';
 
 interface Props {
@@ -9,10 +9,13 @@ interface Props {
 
 const DEFAULT_NOTIFICATION_SOUND = 'https://actions.google.com/sounds/v1/alarms/beep_short.ogg';
 
+type SortType = 'newest' | 'oldest' | 'due_time';
+
 const TodoSection: React.FC<Props> = ({ todos, setTodos }) => {
   const [newTodoText, setNewTodoText] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<TodoCategory>(TodoCategory.TODAY);
   const [draggedId, setDraggedId] = useState<string | null>(null);
+  const [sortType, setSortType] = useState<SortType>('newest');
   const firedRemindersRef = useRef<Set<string>>(new Set());
 
   // Background reminder checker
@@ -23,22 +26,19 @@ const TodoSection: React.FC<Props> = ({ todos, setTodos }) => {
       
       todos.forEach(todo => {
         if (!todo.completed && todo.remindMe && todo.reminderTime === currentTime && !firedRemindersRef.current.has(todo.id)) {
-          // Play sound
           const audio = new Audio(DEFAULT_NOTIFICATION_SOUND);
           audio.play().catch(e => console.debug("Audio blocked", e));
           
-          // Show notification
           if ("Notification" in window && Notification.permission === "granted") {
             new Notification(`Zadanie: ${todo.text}`, {
               body: `Czas na wykonanie zadania z kategorii ${todo.category}`,
               icon: '/favicon.ico'
             });
           }
-          
           firedRemindersRef.current.add(todo.id);
         }
       });
-    }, 30000); // Check every 30s
+    }, 30000);
 
     return () => clearInterval(interval);
   }, [todos]);
@@ -51,9 +51,10 @@ const TodoSection: React.FC<Props> = ({ todos, setTodos }) => {
       text: newTodoText,
       category: selectedCategory,
       completed: false,
-      remindMe: false
+      remindMe: false,
+      createdAt: Date.now()
     };
-    setTodos([...todos, newTodo]);
+    setTodos([newTodo, ...todos]);
     setNewTodoText('');
   };
 
@@ -70,6 +71,16 @@ const TodoSection: React.FC<Props> = ({ todos, setTodos }) => {
     if (!remindMe) firedRemindersRef.current.delete(id);
   };
 
+  const sortedTodos = useMemo(() => {
+    const copy = [...todos];
+    switch (sortType) {
+      case 'newest': return copy.sort((a, b) => b.createdAt - a.createdAt);
+      case 'oldest': return copy.sort((a, b) => a.createdAt - b.createdAt);
+      case 'due_time': return copy.sort((a, b) => (a.reminderTime || '99:99').localeCompare(b.reminderTime || '99:99'));
+      default: return copy;
+    }
+  }, [todos, sortType]);
+
   const handleShare = async (todo: Todo) => {
     if (navigator.share) {
       try {
@@ -78,68 +89,27 @@ const TodoSection: React.FC<Props> = ({ todos, setTodos }) => {
           text: todo.text,
           url: window.location.href
         });
-      } catch (err) {
-        console.debug('Share failed', err);
-      }
+      } catch (err) { console.debug('Share failed', err); }
     } else {
-      alert('Twoja przeglądarka nie wspiera bezpośredniego udostępniania do aplikacji systemowych.');
+      alert('Przeglądarka nie wspiera udostępniania systemowego.');
     }
   };
 
-  const handleDragStart = (id: string) => {
-    setDraggedId(id);
-  };
-
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-  };
-
-  const handleDrop = (targetId: string, category: TodoCategory) => {
-    if (!draggedId || draggedId === targetId) return;
-
-    const newTodos = [...todos];
-    const dragIdx = newTodos.findIndex(t => t.id === draggedId);
-    const targetIdx = newTodos.findIndex(t => t.id === targetId);
-    
-    if (dragIdx === -1 || targetIdx === -1) return;
-
-    const [draggedItem] = newTodos.splice(dragIdx, 1);
-    draggedItem.category = category;
-    
-    const adjustedTargetIdx = newTodos.findIndex(t => t.id === targetId);
-    newTodos.splice(adjustedTargetIdx, 0, draggedItem);
-    
-    setTodos(newTodos);
-    setDraggedId(null);
-  };
-
   const renderCategory = (category: TodoCategory, label: string) => {
-    const categoryTodos = todos.filter(t => t.category === category);
+    const categoryTodos = sortedTodos.filter(t => t.category === category);
     return (
       <div className="mb-8 last:mb-0">
         <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-3 px-1">{label}</h3>
         <div className="space-y-2">
           {categoryTodos.length === 0 ? (
-            <div 
-              onDragOver={handleDragOver}
-              onDrop={() => {
-                if (draggedId) {
-                  setTodos(todos.map(t => t.id === draggedId ? { ...t, category } : t));
-                }
-              }}
-              className="text-xs italic text-slate-400 px-1 py-4 border-2 border-dashed border-slate-100 rounded-xl text-center"
-            >
-              Brak zadań... Upuść tutaj
+            <div className="text-xs italic text-slate-400 px-1 py-4 border-2 border-dashed border-slate-100 rounded-xl text-center">
+              Brak zadań...
             </div>
           ) : (
             categoryTodos.map(todo => (
               <div 
                 key={todo.id} 
-                draggable 
-                onDragStart={() => handleDragStart(todo.id)}
-                onDragOver={handleDragOver}
-                onDrop={() => handleDrop(todo.id, category)}
-                className={`group flex flex-col p-3 bg-slate-50 rounded-xl hover:bg-white border border-transparent hover:border-slate-100 transition-all cursor-move ${draggedId === todo.id ? 'opacity-30 border-indigo-200' : ''}`}
+                className={`group flex flex-col p-3 bg-slate-50 rounded-xl hover:bg-white border border-transparent hover:border-slate-100 transition-all ${draggedId === todo.id ? 'opacity-30' : ''}`}
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-3 flex-1">
@@ -154,23 +124,14 @@ const TodoSection: React.FC<Props> = ({ todos, setTodos }) => {
                     </span>
                   </div>
                   <div className="flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button 
-                      onClick={() => handleShare(todo)}
-                      title="Wyślij do Apple Reminders / Google Tasks"
-                      className="p-1.5 text-slate-400 hover:text-indigo-600 rounded-lg hover:bg-indigo-50"
-                    >
+                    <button onClick={() => handleShare(todo)} className="p-1.5 text-slate-400 hover:text-indigo-600 rounded-lg hover:bg-indigo-50">
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" /></svg>
                     </button>
-                    <button 
-                      onClick={() => deleteTodo(todo.id)}
-                      className="p-1.5 text-slate-400 hover:text-red-500 rounded-lg hover:bg-red-50"
-                    >
+                    <button onClick={() => deleteTodo(todo.id)} className="p-1.5 text-slate-400 hover:text-red-500 rounded-lg hover:bg-red-50">
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
                     </button>
                   </div>
                 </div>
-                
-                {/* Todo Reminder Controls */}
                 {!todo.completed && (
                   <div className="mt-2 flex items-center space-x-3 px-8">
                     <button 
@@ -180,15 +141,14 @@ const TodoSection: React.FC<Props> = ({ todos, setTodos }) => {
                       }`}
                     >
                       <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zM10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z" /></svg>
-                      <span>{todo.remindMe ? 'POWIADOMIENIE WŁ.' : 'POWIADOM MNIE'}</span>
+                      <span>{todo.remindMe ? todo.reminderTime : 'PRZYPOMNIJ'}</span>
                     </button>
-                    
                     {todo.remindMe && (
                       <input 
                         type="time" 
                         value={todo.reminderTime || '12:00'}
                         onChange={(e) => updateTodoReminder(todo.id, true, e.target.value)}
-                        className="text-[10px] font-bold bg-white border border-slate-200 rounded px-1 text-slate-600 focus:ring-1 focus:ring-indigo-500 outline-none"
+                        className="text-[10px] font-bold bg-white border border-slate-200 rounded px-1 text-slate-600 outline-none"
                       />
                     )}
                   </div>
@@ -205,10 +165,15 @@ const TodoSection: React.FC<Props> = ({ todos, setTodos }) => {
     <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 flex flex-col h-full min-h-[600px]">
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-xl font-bold text-slate-800">Lista zadań</h2>
-        <div className="flex flex-col items-end">
-          <span className="text-[10px] text-slate-400 font-bold uppercase">Systemowe Powiadomienia</span>
-          <span className="text-[9px] text-indigo-500 font-bold uppercase cursor-help" title="Kliknij ikonę udostępniania, by wysłać zadanie do Apple Reminders lub Google Tasks">Obsługa Apple & Google</span>
-        </div>
+        <select 
+          value={sortType} 
+          onChange={(e) => setSortType(e.target.value as SortType)}
+          className="text-[10px] font-bold uppercase bg-slate-50 border-none rounded-lg px-2 py-1 text-slate-500 cursor-pointer outline-none focus:ring-1 focus:ring-indigo-200"
+        >
+          <option value="newest">Najnowsze</option>
+          <option value="oldest">Najstarsze</option>
+          <option value="due_time">Godzina</option>
+        </select>
       </div>
       
       <form onSubmit={addTodo} className="mb-8">
@@ -218,7 +183,7 @@ const TodoSection: React.FC<Props> = ({ todos, setTodos }) => {
             value={newTodoText}
             onChange={e => setNewTodoText(e.target.value)}
             placeholder="Co jest do zrobienia?"
-            className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 focus:outline-none text-sm shadow-inner bg-slate-50 focus:bg-white transition-all"
+            className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 focus:outline-none text-sm shadow-inner bg-slate-50 transition-all"
           />
           <div className="flex space-x-2">
             {[
@@ -231,20 +196,13 @@ const TodoSection: React.FC<Props> = ({ todos, setTodos }) => {
                 type="button"
                 onClick={() => setSelectedCategory(cat.id)}
                 className={`flex-1 text-xs py-2 rounded-lg font-semibold transition-all ${
-                  selectedCategory === cat.id 
-                    ? 'bg-slate-800 text-white shadow-md' 
-                    : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                  selectedCategory === cat.id ? 'bg-slate-800 text-white shadow-md' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
                 }`}
               >
                 {cat.label}
               </button>
             ))}
-            <button 
-              type="submit"
-              className="px-4 py-2 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-700 transition-all flex items-center justify-center"
-            >
-              +
-            </button>
+            <button type="submit" className="px-4 py-2 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-700">+</button>
           </div>
         </div>
       </form>

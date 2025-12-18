@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { CalendarEvent } from '../types';
 
 interface Props {
@@ -7,30 +7,57 @@ interface Props {
   setEvents: React.Dispatch<React.SetStateAction<CalendarEvent[]>>;
 }
 
-type ThemeColor = 'indigo' | 'emerald' | 'rose' | 'amber' | 'violet';
-type ViewMode = 'month' | 'week';
+type ThemeColor = 'indigo' | 'emerald' | 'rose' | 'amber' | 'violet' | 'orange' | 'cyan' | 'fuchsia' | 'slate' | 'custom';
 
-const THEMES: Record<ThemeColor, { bg: string, text: string, border: string, accent: string, ring: string, lightBg: string }> = {
-  indigo: { bg: 'bg-indigo-600', text: 'text-indigo-600', border: 'border-indigo-600', accent: 'bg-indigo-500', ring: 'focus:ring-indigo-500', lightBg: 'bg-indigo-50' },
-  emerald: { bg: 'bg-emerald-600', text: 'text-emerald-600', border: 'border-emerald-600', accent: 'bg-emerald-500', ring: 'focus:ring-emerald-500', lightBg: 'bg-emerald-50' },
-  rose: { bg: 'bg-rose-600', text: 'text-rose-600', border: 'border-rose-600', accent: 'bg-rose-500', ring: 'focus:ring-rose-500', lightBg: 'bg-rose-50' },
-  amber: { bg: 'bg-amber-600', text: 'text-amber-600', border: 'border-amber-600', accent: 'bg-amber-500', ring: 'focus:ring-amber-500', lightBg: 'bg-amber-50' },
-  violet: { bg: 'bg-violet-600', text: 'text-violet-600', border: 'border-violet-600', accent: 'bg-violet-500', ring: 'focus:ring-violet-500', lightBg: 'bg-violet-50' },
+interface ThemeDefinition {
+  bg: string;
+  text: string;
+  border: string;
+  accent: string;
+  ring: string;
+  lightBg: string;
+  hex: string;
+}
+
+const THEMES: Record<string, ThemeDefinition> = {
+  indigo: { bg: 'bg-indigo-600', text: 'text-indigo-600', border: 'border-indigo-600', accent: 'bg-indigo-500', ring: 'focus:ring-indigo-500', lightBg: 'bg-indigo-50', hex: '#4f46e5' },
+  emerald: { bg: 'bg-emerald-600', text: 'text-emerald-600', border: 'border-emerald-600', accent: 'bg-emerald-500', ring: 'focus:ring-emerald-500', lightBg: 'bg-emerald-50', hex: '#059669' },
+  rose: { bg: 'bg-rose-600', text: 'text-rose-600', border: 'border-rose-600', accent: 'bg-rose-500', ring: 'focus:ring-rose-500', lightBg: 'bg-rose-50', hex: '#e11d48' },
+  amber: { bg: 'bg-amber-600', text: 'text-amber-600', border: 'border-amber-600', accent: 'bg-amber-500', ring: 'focus:ring-amber-500', lightBg: 'bg-amber-50', hex: '#d97706' },
+  violet: { bg: 'bg-violet-600', text: 'text-violet-600', border: 'border-violet-600', accent: 'bg-violet-500', ring: 'focus:ring-violet-500', lightBg: 'bg-violet-50', hex: '#7c3aed' },
+  orange: { bg: 'bg-orange-500', text: 'text-orange-500', border: 'border-orange-500', accent: 'bg-orange-400', ring: 'focus:ring-orange-500', lightBg: 'bg-orange-50', hex: '#f97316' },
+  cyan: { bg: 'bg-cyan-500', text: 'text-cyan-500', border: 'border-cyan-500', accent: 'bg-cyan-400', ring: 'focus:ring-cyan-500', lightBg: 'bg-cyan-50', hex: '#06b6d4' },
+  fuchsia: { bg: 'bg-fuchsia-600', text: 'text-fuchsia-600', border: 'border-fuchsia-600', accent: 'bg-fuchsia-500', ring: 'focus:ring-fuchsia-500', lightBg: 'bg-fuchsia-50', hex: '#c026d3' },
+  slate: { bg: 'bg-slate-700', text: 'text-slate-700', border: 'border-slate-700', accent: 'bg-slate-600', ring: 'focus:ring-slate-700', lightBg: 'bg-slate-50', hex: '#334155' },
 };
 
-const DEFAULT_NOTIFICATION_SOUND = 'https://actions.google.com/sounds/v1/alarms/beep_short.ogg';
+const REMINDER_SOUNDS = [
+  { name: 'Standardowy Beep', url: 'https://actions.google.com/sounds/v1/alarms/beep_short.ogg' },
+  { name: 'Elektroniczny Chime', url: 'https://actions.google.com/sounds/v1/alarms/digital_watch_alarm_long.ogg' },
+  { name: 'Spokojny Bell', url: 'https://actions.google.com/sounds/v1/alarms/bugle_tune.ogg' },
+];
+
+const DAYS_OF_WEEK = ['Pon', 'Wt', 'Śr', 'Czw', 'Pt', 'Sob', 'Ndz'];
 
 const CalendarSection: React.FC<Props> = ({ events, setEvents }) => {
-  const [currentDate, setCurrentDate] = useState(new Date());
+  const [viewDate, setViewDate] = useState(new Date());
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<ViewMode>('month');
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [isConnected, setIsConnected] = useState(false);
   const [calendarTheme, setCalendarTheme] = useState<ThemeColor>(() => {
     return (localStorage.getItem('calendar_theme') as ThemeColor) || 'indigo';
   });
+  const [customColor, setCustomColor] = useState(() => {
+    return localStorage.getItem('calendar_custom_color') || '#6366f1';
+  });
   
-  // Track fired reminders to avoid repeats in the same session
   const firedRemindersRef = useRef<Set<string>>(new Set());
+
+  const playPreview = (url: string) => {
+    const audio = new Audio(url);
+    audio.play().catch(e => console.debug("Audio preview blocked", e));
+  };
 
   const [formData, setFormData] = useState<Omit<CalendarEvent, 'id' | 'date'>>({
     title: '',
@@ -41,90 +68,111 @@ const CalendarSection: React.FC<Props> = ({ events, setEvents }) => {
     location: '',
     description: '',
     remindMe: false,
-    reminderMinutes: 15
+    reminderMinutes: 15,
+    soundUrl: REMINDER_SOUNDS[0].url
   });
 
   useEffect(() => {
     localStorage.setItem('calendar_theme', calendarTheme);
-  }, [calendarTheme]);
+    localStorage.setItem('calendar_custom_color', customColor);
+  }, [calendarTheme, customColor]);
 
-  // Audio reminder logic
+  // Symulacja autoryzacji i synchronizacji
+  const handleSyncGoogleCalendar = async () => {
+    setIsSyncing(true);
+    
+    // Symulacja okna logowania / autoryzacji
+    if (!isConnected) {
+      const confirmAuth = window.confirm("Hub chce uzyskać dostęp do Twojego Kalendarza Google. Czy wyrażasz zgodę?");
+      if (!confirmAuth) {
+        setIsSyncing(false);
+        return;
+      }
+      // Symulacja opóźnienia sieciowego
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      setIsConnected(true);
+    }
+
+    // Symulacja pobierania danych z API
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    const now = new Date();
+    const mockExternalEvents: CalendarEvent[] = [
+      {
+        id: `google-${Date.now()}-1`,
+        title: 'Wideokonferencja Zespół',
+        date: new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).toISOString().split('T')[0],
+        time: '09:00',
+        person: 'Zespół Marketingu',
+        link: 'https://meet.google.com/xyz-abcd-qrs',
+        phone: '',
+        location: 'Google Meet',
+        isExternal: true
+      },
+      {
+        id: `google-${Date.now()}-2`,
+        title: 'Warsztaty Design Thinking',
+        date: new Date(now.getFullYear(), now.getMonth(), now.getDate() + 3).toISOString().split('T')[0],
+        time: '11:00',
+        person: 'Jan Kowalski',
+        link: '',
+        phone: '',
+        location: 'Biuro Centrum',
+        isExternal: true
+      }
+    ];
+
+    setEvents(prev => {
+      const internal = prev.filter(e => !e.isExternal);
+      return [...internal, ...mockExternalEvents];
+    });
+    
+    setIsSyncing(false);
+  };
+
+  // Reminder Logic
   useEffect(() => {
-    const checkReminders = () => {
+    const interval = setInterval(() => {
       const now = new Date();
       events.forEach(event => {
         if (event.remindMe && !firedRemindersRef.current.has(event.id)) {
           const [hours, minutes] = event.time.split(':').map(Number);
           const eventDate = new Date(event.date);
           eventDate.setHours(hours, minutes, 0, 0);
-          
           const reminderTime = new Date(eventDate.getTime() - (event.reminderMinutes || 0) * 60000);
           
-          // If current time is past or at the reminder time but before the actual event ends (arbitrary 30 min window)
           if (now >= reminderTime && now < new Date(eventDate.getTime() + 30 * 60000)) {
-            const audio = new Audio(DEFAULT_NOTIFICATION_SOUND);
+            const audio = new Audio(event.soundUrl || REMINDER_SOUNDS[0].url);
             audio.play().catch(e => console.debug("Audio playback blocked", e));
             firedRemindersRef.current.add(event.id);
-            
-            // Show browser notification if possible
             if ("Notification" in window && Notification.permission === "granted") {
-              new Notification(`Przypomnienie: ${event.title}`, {
-                body: `${event.time} - ${event.location || 'Brak lokalizacji'}`
-              });
+              new Notification(`Przypomnienie: ${event.title}`, { body: `${event.time} - ${event.location || ''}` });
             }
           }
         }
       });
-    };
-
-    const interval = setInterval(checkReminders, 10000); // Check every 10 seconds
+    }, 10000);
     return () => clearInterval(interval);
   }, [events]);
 
-  // Request notification permission on mount
-  useEffect(() => {
-    if ("Notification" in window && Notification.permission === "default") {
-      Notification.requestPermission();
-    }
-  }, []);
+  const daysInMonth = useMemo(() => {
+    const year = viewDate.getFullYear();
+    const month = viewDate.getMonth();
+    const firstDay = new Date(year, month, 1).getDay();
+    const days = new Date(year, month + 1, 0).getDate();
+    const adjustedStart = firstDay === 0 ? 6 : firstDay - 1;
+    const calendarDays = [];
+    for (let i = 0; i < adjustedStart; i++) calendarDays.push(null);
+    for (let i = 1; i <= days; i++) calendarDays.push(new Date(year, month, i));
+    return calendarDays;
+  }, [viewDate]);
 
-  const daysInMonth = (year: number, month: number) => new Date(year, month + 1, 0).getDate();
-  
-  const getStartOfWeek = (date: Date) => {
-    const d = new Date(date);
-    const day = d.getDay();
-    const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Adjust for Monday-start
-    return new Date(d.setDate(diff));
+  const changeMonth = (offset: number) => {
+    setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() + offset, 1));
   };
 
-  const startOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).getDay();
-  const adjustedStart = startOfMonth === 0 ? 6 : startOfMonth - 1;
-
-  const handlePrev = () => {
-    if (viewMode === 'month') {
-      setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1));
-    } else {
-      const newDate = new Date(currentDate);
-      newDate.setDate(newDate.getDate() - 7);
-      setCurrentDate(newDate);
-    }
-  };
-
-  const handleNext = () => {
-    if (viewMode === 'month') {
-      setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1));
-    } else {
-      const newDate = new Date(currentDate);
-      newDate.setDate(newDate.getDate() + 7);
-      setCurrentDate(newDate);
-    }
-  };
-
-  const formatDay = (dayDate: Date) => {
-    return dayDate.toISOString().split('T')[0];
-  };
-
-  const handleDayClick = (dateStr: string) => {
+  const handleDayClick = (date: Date) => {
+    const dateStr = date.toISOString().split('T')[0];
     setSelectedDay(dateStr);
     setIsModalOpen(true);
   };
@@ -132,323 +180,273 @@ const CalendarSection: React.FC<Props> = ({ events, setEvents }) => {
   const handleSaveEvent = (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedDay) return;
-
-    const newEvent: CalendarEvent = {
-      ...formData,
-      id: Date.now().toString(),
-      date: selectedDay
-    };
-
+    const newEvent: CalendarEvent = { ...formData, id: Date.now().toString(), date: selectedDay };
     setEvents([...events, newEvent]);
     setIsModalOpen(false);
-    setFormData({ title: '', time: '12:00', person: '', link: '', phone: '', location: '', description: '', remindMe: false, reminderMinutes: 15 });
+    setFormData({ ...formData, title: '', remindMe: false });
   };
 
-  const deleteEvent = (id: string) => {
-    setEvents(events.filter(e => e.id !== id));
+  const activeTheme = useMemo(() => {
+    if (calendarTheme === 'custom') {
+      return { 
+        bg: 'bg-custom', text: 'text-custom', border: 'border-custom', accent: 'bg-custom', ring: 'focus:ring-custom', lightBg: 'bg-custom-light', 
+        hex: customColor, isCustom: true 
+      };
+    }
+    return { ...THEMES[calendarTheme as string], isCustom: false };
+  }, [calendarTheme, customColor]);
+
+  const getThemeStyles = (type: 'bg' | 'text' | 'border' | 'ring' | 'lightBg') => {
+    if (!activeTheme.isCustom) return {};
+    const color = activeTheme.hex;
+    switch (type) {
+      case 'bg': return { backgroundColor: color };
+      case 'text': return { color: color };
+      case 'border': return { borderColor: color };
+      case 'ring': return { '--tw-ring-color': color } as React.CSSProperties;
+      case 'lightBg': return { backgroundColor: `${color}15` };
+      default: return {};
+    }
   };
 
-  const eventsOnSelectedDay = events.filter(e => e.date === selectedDay).sort((a, b) => a.time.localeCompare(b.time));
-  const activeTheme = THEMES[calendarTheme];
+  const todayStr = new Date().toISOString().split('T')[0];
 
-  const renderMonthView = () => (
-    <div className="grid grid-cols-7 gap-2">
-      {Array.from({ length: adjustedStart }).map((_, i) => (
-        <div key={`empty-${i}`} className="h-12 lg:h-16"></div>
-      ))}
-      {Array.from({ length: daysInMonth(currentDate.getFullYear(), currentDate.getMonth()) }).map((_, i) => {
-        const d = new Date(currentDate.getFullYear(), currentDate.getMonth(), i + 1);
-        const dateStr = formatDay(d);
-        const dayEvents = events.filter(e => e.date === dateStr);
-        const hasEvents = dayEvents.length > 0;
-        const hasReminders = dayEvents.some(e => e.remindMe);
-        const isToday = new Date().toISOString().split('T')[0] === dateStr;
-        
-        return (
-          <button
-            key={dateStr}
-            onClick={() => handleDayClick(dateStr)}
-            className={`h-12 lg:h-16 flex flex-col items-center justify-center rounded-xl border transition-all relative ${
-              isToday 
-                ? `${activeTheme.border} ${activeTheme.lightBg} ${activeTheme.text}` 
-                : 'border-slate-50 hover:border-slate-200 hover:bg-slate-50'
-            }`}
+  return (
+    <div className="bg-white rounded-[40px] shadow-sm border border-slate-200 p-8 flex flex-col gap-8">
+      {/* Enhanced Header */}
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
+        <div>
+          <h2 className="text-3xl font-black text-slate-900 tracking-tighter">
+            {viewDate.toLocaleString('pl-PL', { month: 'long', year: 'numeric' })}
+          </h2>
+          {/* Theme Palette */}
+          <div className="flex flex-wrap items-center gap-2 mt-4 p-1.5 bg-slate-50 rounded-2xl border border-slate-100">
+            {Object.keys(THEMES).map(t => (
+              <button 
+                key={t} 
+                onClick={() => setCalendarTheme(t as ThemeColor)} 
+                className={`w-5 h-5 rounded-full transition-all hover:scale-125 ${THEMES[t].bg} ${calendarTheme === t ? 'ring-2 ring-offset-2 ring-slate-400 scale-110 shadow-sm' : ''}`} 
+                title={t}
+              />
+            ))}
+            <div className={`w-5 h-5 rounded-full relative overflow-hidden transition-all hover:scale-125 ${calendarTheme === 'custom' ? 'ring-2 ring-offset-2 ring-slate-400 scale-110 shadow-sm' : ''}`} style={{ backgroundColor: customColor }}>
+              <input 
+                type="color" 
+                value={customColor} 
+                onChange={(e) => { setCustomColor(e.target.value); setCalendarTheme('custom'); }}
+                className="absolute inset-0 opacity-0 cursor-pointer w-full h-full scale-150"
+              />
+            </div>
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mr-1">Paleta kolorów</span>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-4">
+          <button 
+            onClick={handleSyncGoogleCalendar}
+            disabled={isSyncing}
+            className={`flex items-center gap-3 px-5 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${
+              isConnected 
+                ? 'bg-blue-50 text-blue-600 border border-blue-100 hover:bg-blue-100' 
+                : 'bg-white text-slate-800 border border-slate-200 hover:border-blue-500 hover:text-blue-600 shadow-sm'
+            } ${isSyncing ? 'opacity-70 cursor-not-allowed' : ''}`}
           >
-            <span className="text-sm font-semibold">{i + 1}</span>
-            {hasEvents && (
-              <div className="mt-1 flex space-x-0.5">
-                <div className={`w-1.5 h-1.5 ${hasReminders ? 'bg-amber-500' : activeTheme.accent} rounded-full`}></div>
-              </div>
+            {isSyncing ? (
+              <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+            ) : (
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M21.35 11.1h-9.17v2.73h5.14c-.22 1.1-.87 2.03-1.85 2.68v2.23h3c1.76-1.62 2.77-4 2.77-6.88 0-.6-.05-1.18-.14-1.76z" fill="#4285F4"/><path d="M12.18 21c2.43 0 4.47-.8 5.96-2.18l-3-2.23c-.83.56-1.89.88-2.96.88-2.27 0-4.19-1.53-4.88-3.6H4.26v2.3C5.74 19.1 8.78 21 12.18 21z" fill="#34A853"/><path d="M7.3 13.87c-.17-.5-.27-1.04-.27-1.6s.1-1.1.27-1.6V8.37H4.26c-.57 1.15-.9 2.44-.9 3.8s.33 2.65.9 3.8l3.04-2.3z" fill="#FBBC05"/><path d="M12.18 6.93c1.32 0 2.5.45 3.44 1.35l2.58-2.58C16.65 4.3 14.61 3.5 12.18 3.5c-3.4 0-6.44 1.9-7.92 4.87l3.04 2.3c.69-2.07 2.61-3.6 4.88-3.6z" fill="#EA4335"/>
+              </svg>
             )}
+            {isSyncing ? 'Ładowanie...' : isConnected ? 'Zsynchronizowano' : 'Połącz Kalendarz'}
           </button>
-        );
-      })}
-    </div>
-  );
 
-  const renderWeekView = () => {
-    const monday = getStartOfWeek(currentDate);
-    return (
-      <div className="flex flex-col space-y-3">
-        {Array.from({ length: 7 }).map((_, i) => {
-          const d = new Date(monday);
-          d.setDate(monday.getDate() + i);
-          const dateStr = formatDay(d);
-          const dayEvents = events.filter(e => e.date === dateStr).sort((a, b) => a.time.localeCompare(b.time));
-          const isToday = new Date().toISOString().split('T')[0] === dateStr;
+          <div className="flex bg-slate-100 p-1.5 rounded-2xl border border-slate-200">
+            <button onClick={() => changeMonth(-1)} className="p-2.5 hover:bg-white rounded-xl transition-all text-slate-600">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M15 19l-7-7 7-7" /></svg>
+            </button>
+            <button onClick={() => setViewDate(new Date())} className="px-5 py-1 text-[10px] font-black text-slate-700 hover:text-black uppercase tracking-widest">Dzisiaj</button>
+            <button onClick={() => changeMonth(1)} className="p-2.5 hover:bg-white rounded-xl transition-all text-slate-600">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M9 5l7 7-7 7" /></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Days Grid */}
+      <div className="grid grid-cols-7 gap-2">
+        {DAYS_OF_WEEK.map(day => (
+          <div key={day} className="text-center text-[10px] font-black text-slate-400 uppercase py-4">
+            {day}
+          </div>
+        ))}
+        {daysInMonth.map((date, idx) => {
+          if (!date) return <div key={`empty-${idx}`} className="h-20 sm:h-28 bg-slate-50/50 rounded-3xl" />;
+          
+          const dateStr = date.toISOString().split('T')[0];
+          const isToday = dateStr === todayStr;
+          const dayEvents = events.filter(e => e.date === dateStr);
+          const hasExternal = dayEvents.some(e => e.isExternal);
           
           return (
-            <div 
-              key={dateStr} 
-              className={`flex p-3 rounded-2xl border transition-all items-center ${
-                isToday ? `${activeTheme.border} ${activeTheme.lightBg}` : 'border-slate-100 bg-slate-50/50'
+            <button
+              key={dateStr}
+              onClick={() => handleDayClick(date)}
+              style={isToday ? getThemeStyles('lightBg') : {}}
+              className={`h-20 sm:h-28 p-3 border rounded-3xl flex flex-col items-center justify-between transition-all group relative overflow-hidden ${
+                isToday 
+                  ? (activeTheme.isCustom ? 'border-2' : `border-2 ${activeTheme.border} ${activeTheme.lightBg}`) 
+                  : 'border-slate-50 hover:border-slate-200 hover:bg-slate-50'
               }`}
             >
-              <button 
-                onClick={() => handleDayClick(dateStr)}
-                className={`w-14 h-14 flex flex-col items-center justify-center rounded-xl shadow-sm mr-4 shrink-0 ${
-                  isToday ? activeTheme.bg + ' text-white' : 'bg-white text-slate-700'
-                }`}
+              <span 
+                className={`text-sm font-black ${isToday ? (activeTheme.isCustom ? '' : activeTheme.text) : 'text-slate-500 group-hover:text-slate-800'}`}
+                style={isToday && activeTheme.isCustom ? getThemeStyles('text') : {}}
               >
-                <span className="text-[10px] font-bold uppercase opacity-80">
-                  {d.toLocaleDateString('pl-PL', { weekday: 'short' })}
-                </span>
-                <span className="text-lg font-bold leading-tight">{d.getDate()}</span>
-              </button>
+                {date.getDate()}
+              </span>
               
-              <div className="flex-1 overflow-x-auto no-scrollbar py-1">
-                <div className="flex space-x-2">
-                  {dayEvents.length === 0 ? (
-                    <span className="text-xs text-slate-300 font-medium italic py-2">Brak wydarzeń</span>
-                  ) : (
-                    dayEvents.map(ev => (
-                      <div key={ev.id} className="bg-white px-3 py-2 rounded-xl border border-slate-100 shadow-sm min-w-[120px] max-w-[160px] shrink-0">
-                        <div className="flex items-center space-x-1.5 mb-1">
-                          <span className={`w-1.5 h-1.5 rounded-full ${ev.remindMe ? 'bg-amber-500' : activeTheme.accent}`}></span>
-                          <span className="text-[10px] font-bold text-slate-400">{ev.time}</span>
-                        </div>
-                        <p className="text-xs font-bold text-slate-800 truncate">{ev.title}</p>
-                      </div>
-                    ))
-                  )}
-                  <button 
-                    onClick={() => handleDayClick(dateStr)}
-                    className="w-8 h-8 rounded-full bg-slate-100 text-slate-400 hover:bg-slate-200 hover:text-slate-600 flex items-center justify-center shrink-0 transition-colors"
-                  >
-                    +
-                  </button>
-                </div>
+              <div className="flex flex-wrap gap-1 justify-center mt-auto pb-1 max-w-full">
+                {dayEvents.slice(0, 4).map(e => (
+                  <div 
+                    key={e.id} 
+                    style={activeTheme.isCustom ? getThemeStyles('bg') : {}}
+                    className={`w-2 h-2 rounded-full ${activeTheme.isCustom ? '' : activeTheme.bg} ${e.isExternal ? 'ring-1 ring-white shadow-sm' : ''}`} 
+                    title={e.title} 
+                  />
+                ))}
               </div>
-            </div>
+              
+              {hasExternal && (
+                <div className="absolute top-2 right-2">
+                  <div className="w-1 h-1 rounded-full bg-blue-500 animate-pulse" />
+                </div>
+              )}
+            </button>
           );
         })}
       </div>
-    );
-  };
 
-  return (
-    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
-        <div>
-          <h2 className="text-xl font-bold text-slate-800">Kalendarz</h2>
-          <div className="flex items-center space-x-3 mt-2">
-            <div className="flex space-x-1.5">
-              {(Object.keys(THEMES) as ThemeColor[]).map(t => (
-                <button 
-                  key={t} 
-                  onClick={() => setCalendarTheme(t)}
-                  className={`w-3 h-3 rounded-full transition-transform hover:scale-125 ${THEMES[t].bg} ${calendarTheme === t ? 'ring-2 ring-offset-2 ring-slate-400 scale-110' : ''}`}
+      {/* Modal View */}
+      {isModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-md flex items-center justify-center z-[100] p-4">
+          <div className="bg-white rounded-[40px] shadow-2xl w-full max-w-lg p-10 transform animate-in zoom-in-95 duration-300">
+            <div className="flex justify-between items-center mb-10">
+              <div>
+                <h3 className="text-3xl font-black text-slate-900 tracking-tighter uppercase">Dodaj Plan</h3>
+                <p className="text-xs font-bold text-slate-400 mt-2 tracking-widest uppercase">{new Date(selectedDay!).toLocaleDateString('pl-PL', { day: 'numeric', month: 'long', weekday: 'long' })}</p>
+              </div>
+              <button onClick={() => setIsModalOpen(false)} className="p-3 text-slate-300 hover:text-slate-600 transition-colors">
+                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+            
+            <form onSubmit={handleSaveEvent} className="space-y-8">
+              <div className="space-y-3">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Nazwa wydarzenia</label>
+                <input 
+                  required 
+                  type="text" 
+                  value={formData.title} 
+                  onChange={e => setFormData({...formData, title: e.target.value})} 
+                  className="w-full px-8 py-5 rounded-3xl border-2 border-slate-100 bg-slate-50 focus:bg-white focus:border-indigo-500 focus:outline-none font-black text-slate-800 transition-all shadow-inner"
+                  placeholder="np. Trening, Spotkanie..." 
                 />
-              ))}
-            </div>
-            <div className="h-4 w-px bg-slate-200"></div>
-            <div className="flex bg-slate-100 p-0.5 rounded-lg">
-              <button 
-                onClick={() => setViewMode('month')}
-                className={`px-3 py-1 text-[10px] font-bold rounded-md transition-all ${viewMode === 'month' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-              >
-                MIESIĄC
-              </button>
-              <button 
-                onClick={() => setViewMode('week')}
-                className={`px-3 py-1 text-[10px] font-bold rounded-md transition-all ${viewMode === 'week' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-              >
-                TYDZIEŃ
-              </button>
-            </div>
-          </div>
-        </div>
-        
-        <div className="flex items-center space-x-3 bg-slate-50 px-4 py-2 rounded-xl border border-slate-100 w-full sm:w-auto justify-between sm:justify-start">
-          <span className="text-sm font-bold text-slate-700">
-            {viewMode === 'month' 
-              ? currentDate.toLocaleDateString('pl-PL', { month: 'long', year: 'numeric' })
-              : `Tydzień ${getStartOfWeek(currentDate).getDate()}.${getStartOfWeek(currentDate).getMonth()+1}`}
-          </span>
-          <div className="flex space-x-1">
-            <button onClick={handlePrev} className="p-1.5 rounded-lg hover:bg-white hover:shadow-sm transition-all"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg></button>
-            <button onClick={handleNext} className="p-1.5 rounded-lg hover:bg-white hover:shadow-sm transition-all"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" /></svg></button>
-          </div>
-        </div>
-      </div>
+              </div>
 
-      <div className="mb-2">
-        {viewMode === 'month' && (
-          <div className="grid grid-cols-7 gap-1">
-            {['Pn', 'Wt', 'Śr', 'Cz', 'Pt', 'So', 'Nd'].map(d => (
-              <div key={d} className="text-center text-[10px] font-bold text-slate-400 uppercase py-2">{d}</div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {viewMode === 'month' ? renderMonthView() : renderWeekView()}
-
-      <div className="mt-8">
-        <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-4">Nadchodzące dzisiaj i jutro</h3>
-        <div className="space-y-4 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
-          {events
-            .filter(e => {
-              const evDate = new Date(e.date);
-              const today = new Date();
-              today.setHours(0,0,0,0);
-              const limit = new Date(today);
-              limit.setDate(limit.getDate() + 2); // Show next 2 days
-              return evDate >= today && evDate < limit;
-            })
-            .sort((a,b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time))
-            .map(event => (
-              <div key={event.id} className="bg-slate-50 rounded-xl p-4 border border-slate-100 flex flex-col space-y-2 relative group hover:bg-white transition-colors">
-                <div className="flex justify-between items-start">
-                  <div className="flex items-center">
-                    <span className={`text-[10px] font-bold ${activeTheme.text} ${activeTheme.lightBg} px-2 py-0.5 rounded-full uppercase mr-2`}>
-                      {new Date(event.date).toLocaleDateString('pl-PL', { weekday: 'short' })} {event.time}
-                    </span>
-                    {event.remindMe && (
-                      <span className="bg-amber-100 text-amber-600 p-1 rounded-full" title={`Przypomnienie: ${event.reminderMinutes} min wcześniej`}>
-                        <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zM10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z" /></svg>
-                      </span>
-                    )}
+              <div className="grid grid-cols-2 gap-6">
+                <div className="space-y-3">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Godzina</label>
+                  <input 
+                    required 
+                    type="time" 
+                    value={formData.time} 
+                    onChange={e => setFormData({...formData, time: e.target.value})} 
+                    className="w-full px-8 py-5 rounded-3xl border-2 border-slate-100 bg-slate-50 focus:bg-white focus:border-indigo-500 focus:outline-none font-black text-slate-800 transition-all shadow-inner"
+                  />
+                </div>
+                <div className="space-y-3">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Miejsce</label>
+                  <input 
+                    type="text" 
+                    value={formData.location} 
+                    onChange={e => setFormData({...formData, location: e.target.value})} 
+                    className="w-full px-8 py-5 rounded-3xl border-2 border-slate-100 bg-slate-50 focus:bg-white focus:border-indigo-500 focus:outline-none font-black text-slate-800 transition-all shadow-inner"
+                    placeholder="Gdzie?" 
+                  />
+                </div>
+              </div>
+              
+              <div className="p-8 bg-slate-50 rounded-[32px] space-y-6 border border-slate-100">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div 
+                      style={formData.remindMe ? getThemeStyles('bg') : {}} 
+                      className={`p-3 rounded-2xl ${formData.remindMe && !activeTheme.isCustom ? activeTheme.bg : 'bg-slate-200'} text-white transition-all shadow-md`}
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>
+                    </div>
+                    <label className="text-sm font-black text-slate-700 uppercase tracking-tight">Włącz powiadomienie</label>
                   </div>
-                  <button onClick={() => deleteEvent(event.id)} className="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-red-500 transition-opacity">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                  <button 
+                    type="button" 
+                    onClick={() => setFormData({...formData, remindMe: !formData.remindMe})} 
+                    style={formData.remindMe ? getThemeStyles('bg') : {}}
+                    className={`w-16 h-8 rounded-full relative transition-all ${formData.remindMe && !activeTheme.isCustom ? activeTheme.bg : 'bg-slate-300'}`}
+                  >
+                    <div className={`absolute top-1.5 w-5 h-5 bg-white rounded-full shadow-lg transition-all ${formData.remindMe ? 'right-1.5' : 'left-1.5'}`} />
                   </button>
                 </div>
-                <h4 className="text-sm font-bold text-slate-800">{event.title}</h4>
-                {event.location && (
-                  <div className="text-[10px] text-slate-500 flex items-center bg-slate-100 self-start px-2 py-0.5 rounded italic">
-                    <svg className="w-2.5 h-2.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                    {event.location}
+
+                {formData.remindMe && (
+                  <div className="space-y-6 animate-in fade-in slide-in-from-top-4 duration-400">
+                    <div className="flex items-center gap-4 bg-white p-4 rounded-2xl border border-slate-200">
+                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Alarm:</span>
+                      <input 
+                        type="number" 
+                        value={formData.reminderMinutes} 
+                        onChange={e => setFormData({...formData, reminderMinutes: parseInt(e.target.value) || 0})} 
+                        className="w-20 px-3 py-2 rounded-xl border-2 border-slate-100 font-black text-sm text-center focus:border-indigo-500 outline-none" 
+                      />
+                      <span className="text-[10px] text-slate-400 font-black uppercase tracking-tighter">minut przed czasem</span>
+                    </div>
+                    <div className="space-y-3">
+                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Wybierz dźwięk</label>
+                      <div className="space-y-2">
+                        {REMINDER_SOUNDS.map(s => (
+                          <div 
+                            key={s.url} 
+                            onClick={() => setFormData({...formData, soundUrl: s.url})}
+                            className={`flex items-center justify-between p-4 rounded-2xl border-2 cursor-pointer transition-all ${
+                              formData.soundUrl === s.url 
+                                ? `border-indigo-500 bg-white shadow-lg` 
+                                : 'border-transparent bg-white/50 hover:bg-white hover:border-slate-100'
+                            }`}
+                          >
+                            <span className="text-xs font-black text-slate-600 uppercase tracking-tighter">{s.name}</span>
+                            <button 
+                              type="button" 
+                              onClick={(e) => { e.stopPropagation(); playPreview(s.url); }} 
+                              style={activeTheme.isCustom ? getThemeStyles('text') : {}}
+                              className={`${!activeTheme.isCustom ? activeTheme.text : ''} hover:scale-125 transition-transform`}
+                            >
+                              <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" /></svg>
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>
-            ))}
-        </div>
-      </div>
-
-      {isModalOpen && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-y-auto">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl p-6 my-auto">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-xl font-bold text-slate-800">Plan na {selectedDay}</h3>
-              <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600">
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
+              <button 
+                type="submit" 
+                style={getThemeStyles('bg')}
+                className={`w-full py-6 rounded-[28px] font-black uppercase text-sm tracking-[0.2em] text-white shadow-2xl shadow-slate-200 transition-all active:scale-[0.98] ${!activeTheme.isCustom ? activeTheme.bg : ''} hover:brightness-110 active:brightness-90`}
+              >
+                Zatwierdź Plan
               </button>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              <div className="space-y-4">
-                <h4 className={`text-xs font-bold ${activeTheme.text} uppercase tracking-widest border-b border-slate-100 pb-1`}>Dodaj wydarzenie</h4>
-                <form id="event-form" onSubmit={handleSaveEvent} className="space-y-4">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="col-span-2">
-                      <label className="block text-xs font-semibold text-slate-500 mb-1">Tytuł</label>
-                      <input required type="text" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} className={`w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:ring-2 ${activeTheme.ring} outline-none`} placeholder="Spotkanie..." />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-500 mb-1">Godzina</label>
-                      <input required type="time" value={formData.time} onChange={e => setFormData({...formData, time: e.target.value})} className={`w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:ring-2 ${activeTheme.ring} outline-none`} />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-500 mb-1">Osoba</label>
-                      <input type="text" value={formData.person} onChange={e => setFormData({...formData, person: e.target.value})} className={`w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:ring-2 ${activeTheme.ring} outline-none`} placeholder="Imię..." />
-                    </div>
-                    <div className="col-span-2">
-                      <label className="block text-xs font-semibold text-slate-500 mb-1">Lokalizacja</label>
-                      <input type="text" value={formData.location} onChange={e => setFormData({...formData, location: e.target.value})} className={`w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:ring-2 ${activeTheme.ring} outline-none`} placeholder="Gdzie?" />
-                    </div>
-                  </div>
-
-                  <div className="p-3 bg-slate-50 rounded-xl space-y-3">
-                    <div className="flex items-center justify-between">
-                      <label className="text-xs font-bold text-slate-600 flex items-center">
-                        <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20"><path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zM10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z" /></svg>
-                        Powiadomienie (Audio)
-                      </label>
-                      <button 
-                        type="button"
-                        onClick={() => setFormData({...formData, remindMe: !formData.remindMe})}
-                        className={`w-10 h-5 rounded-full relative transition-colors ${formData.remindMe ? activeTheme.bg : 'bg-slate-300'}`}
-                      >
-                        <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${formData.remindMe ? 'right-1' : 'left-1'}`}></div>
-                      </button>
-                    </div>
-                    {formData.remindMe && (
-                      <div className="flex items-center space-x-2">
-                        <input 
-                          type="number" 
-                          min="0" 
-                          max="1440"
-                          value={formData.reminderMinutes}
-                          onChange={e => setFormData({...formData, reminderMinutes: parseInt(e.target.value) || 0})}
-                          className={`w-16 px-2 py-1 rounded-lg border border-slate-200 text-xs focus:ring-2 ${activeTheme.ring} outline-none`} 
-                        />
-                        <span className="text-[10px] font-bold text-slate-400 uppercase">minut przed</span>
-                      </div>
-                    )}
-                  </div>
-
-                  <textarea 
-                    value={formData.description} 
-                    onChange={e => setFormData({...formData, description: e.target.value})} 
-                    rows={2}
-                    className={`w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:ring-2 ${activeTheme.ring} outline-none resize-none`} 
-                    placeholder="Opis..."
-                  />
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <input type="text" value={formData.link} onChange={e => setFormData({...formData, link: e.target.value})} className={`w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:ring-2 ${activeTheme.ring} outline-none`} placeholder="Link spotkania" />
-                    <input type="tel" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} className={`w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:ring-2 ${activeTheme.ring} outline-none`} placeholder="Telefon" />
-                  </div>
-                  
-                  <button type="submit" className={`w-full py-2.5 ${activeTheme.bg} text-white rounded-xl font-bold hover:brightness-110 transition-all shadow-md`}>Zapisz wydarzenie</button>
-                </form>
-              </div>
-
-              <div className="space-y-4">
-                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest border-b border-slate-100 pb-1">Zapisane</h4>
-                <div className="space-y-3 max-h-[450px] overflow-y-auto pr-2 custom-scrollbar">
-                  {eventsOnSelectedDay.length === 0 ? (
-                    <p className="text-xs italic text-slate-400 text-center py-8">Brak planów na ten dzień</p>
-                  ) : (
-                    eventsOnSelectedDay.map(e => (
-                      <div key={e.id} className="p-4 bg-slate-50 rounded-xl text-xs relative group border border-slate-100 flex flex-col space-y-2">
-                        <div className="flex justify-between items-start">
-                          <span className={`font-bold ${activeTheme.text}`}>{e.time} - {e.title}</span>
-                          <button onClick={() => deleteEvent(e.id)} className="text-red-400 hover:text-red-600 transition-opacity">Usuń</button>
-                        </div>
-                        {e.location && <p className="text-slate-500 font-medium italic">📍 {e.location}</p>}
-                        {e.description && <p className="text-slate-600 bg-white p-2 rounded-lg border border-slate-100">{e.description}</p>}
-                        <div className="flex flex-wrap gap-2 pt-1">
-                          {e.remindMe && <span className="bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-bold text-[9px]">🔔 {e.reminderMinutes}m</span>}
-                          {e.link && <a href={e.link} className={`${activeTheme.text} font-bold underline`}>Link</a>}
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
-            </div>
+            </form>
           </div>
         </div>
       )}

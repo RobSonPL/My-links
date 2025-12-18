@@ -3,14 +3,13 @@ import React, { useState, useEffect } from 'react';
 import BookmarkSection from './components/BookmarkSection';
 import TodoSection from './components/TodoSection';
 import CalendarSection from './components/CalendarSection';
-import { Bookmark, Todo, CalendarEvent, TodoCategory, BookmarkCategory } from './types';
+import { Bookmark, Todo, CalendarEvent } from './types';
 
 const App: React.FC = () => {
   const [bookmarks, setBookmarks] = useState<Bookmark[]>(() => {
     const saved = localStorage.getItem('hub_bookmarks');
     if (saved) {
       const parsed = JSON.parse(saved);
-      // Migration: Ensure all old bookmarks have category and clickCount
       return parsed.map((b: any) => ({
         ...b,
         category: b.category || 'www',
@@ -51,37 +50,46 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 p-4 md:p-8">
-      <header className="max-w-7xl mx-auto mb-8 flex items-baseline justify-between">
-        <h1 className="text-3xl font-bold text-slate-800 tracking-tight">Personal Hub</h1>
-        <div className="text-sm text-slate-500 font-medium">
-          {new Date().toLocaleDateString('pl-PL', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+      <header className="max-w-7xl mx-auto mb-8 flex items-baseline justify-between border-b border-slate-200 pb-4">
+        <div>
+          <h1 className="text-3xl font-black text-slate-900 tracking-tighter">My Hub</h1>
+          <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mt-1">Personal Productivity Dashboard</p>
+        </div>
+        <div className="text-right">
+          <div className="text-sm text-slate-800 font-bold">
+            {new Date().toLocaleDateString('pl-PL', { day: 'numeric', month: 'long', year: 'numeric' })}
+          </div>
+          <div className="text-[10px] text-slate-400 font-bold uppercase">
+            {new Date().toLocaleDateString('pl-PL', { weekday: 'long' })}
+          </div>
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8">
-        {/* Bookmark Section - Left */}
-        <section className="lg:col-span-3">
+      <main className="max-w-7xl mx-auto flex flex-col gap-8">
+        {/* Row 1: Bookmarks Horizontal - Full Width */}
+        <section className="w-full">
           <BookmarkSection 
             bookmarks={bookmarks} 
             setBookmarks={setBookmarks} 
           />
         </section>
 
-        {/* To-Do Section - Middle */}
-        <section className="lg:col-span-4">
-          <TodoSection 
-            todos={todos} 
-            setTodos={setTodos} 
-          />
-        </section>
+        {/* Row 2: Todo and Calendar - Side by Side */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <section>
+            <TodoSection 
+              todos={todos} 
+              setTodos={setTodos} 
+            />
+          </section>
 
-        {/* Calendar Section - Right */}
-        <section className="lg:col-span-5">
-          <CalendarSection 
-            events={events} 
-            setEvents={setEvents} 
-          />
-        </section>
+          <section>
+            <CalendarSection 
+              events={events} 
+              setEvents={setEvents} 
+            />
+          </section>
+        </div>
       </main>
     </div>
   );
