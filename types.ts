@@ -1,8 +1,12 @@
 
+export type BookmarkCategory = 'e-book' | 'Video' | 'Foto' | 'www' | 'Zdrowie' | 'Edukacja AI';
+
 export interface Bookmark {
   id: string;
   title: string;
   url: string;
+  category: BookmarkCategory;
+  clickCount: number;
 }
 
 export enum TodoCategory {
@@ -16,6 +20,8 @@ export interface Todo {
   text: string;
   category: TodoCategory;
   completed: boolean;
+  remindMe?: boolean;
+  reminderTime?: string; // Format HH:mm
 }
 
 export interface CalendarEvent {

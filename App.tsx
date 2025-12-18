@@ -3,15 +3,27 @@ import React, { useState, useEffect } from 'react';
 import BookmarkSection from './components/BookmarkSection';
 import TodoSection from './components/TodoSection';
 import CalendarSection from './components/CalendarSection';
-import { Bookmark, Todo, CalendarEvent, TodoCategory } from './types';
+import { Bookmark, Todo, CalendarEvent, TodoCategory, BookmarkCategory } from './types';
 
 const App: React.FC = () => {
   const [bookmarks, setBookmarks] = useState<Bookmark[]>(() => {
     const saved = localStorage.getItem('hub_bookmarks');
-    return saved ? JSON.parse(saved) : [
-      { id: '1', title: 'Google', url: 'https://google.com' },
-      { id: '2', title: 'YouTube', url: 'https://youtube.com' },
-      { id: '3', title: 'GitHub', url: 'https://github.com' }
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      // Migration: Ensure all old bookmarks have category and clickCount
+      return parsed.map((b: any) => ({
+        ...b,
+        category: b.category || 'www',
+        clickCount: b.clickCount || 0
+      }));
+    }
+    return [
+      { id: '1', title: 'Google', url: 'https://google.com', category: 'www', clickCount: 0 },
+      { id: '2', title: 'YouTube', url: 'https://youtube.com', category: 'Video', clickCount: 0 },
+      { id: '3', title: 'GitHub', url: 'https://github.com', category: 'Edukacja AI', clickCount: 0 },
+      { id: '4', title: 'Unsplash', url: 'https://unsplash.com', category: 'Foto', clickCount: 0 },
+      { id: '5', title: 'Kindle', url: 'https://read.amazon.com', category: 'e-book', clickCount: 0 },
+      { id: '6', title: 'Medonet', url: 'https://medonet.pl', category: 'Zdrowie', clickCount: 0 }
     ];
   });
 
