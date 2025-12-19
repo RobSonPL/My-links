@@ -38,5 +38,5 @@ export interface CalendarEvent {
   remindMe?: boolean;
   reminderMinutes?: number;
   soundUrl?: string;
-  isExternal?: boolean;
+  isExternal?: boolean; // Flaga dla zsynchronizowanych wydarzeń
 }
