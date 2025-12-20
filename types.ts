@@ -12,6 +12,7 @@ export interface Bookmark {
 export enum TodoCategory {
   TODAY = 'today',
   TOMORROW = 'tomorrow',
+  AFTER_TOMORROW = 'after_tomorrow',
   THIS_WEEK = 'this_week'
 }
 
@@ -20,15 +21,22 @@ export interface Todo {
   text: string;
   category: TodoCategory;
   completed: boolean;
+  isArchived?: boolean;
   remindMe?: boolean;
-  reminderTime?: string; // Format HH:mm
+  reminderTime?: string;
   createdAt: number;
+}
+
+export interface GoogleSession {
+  isConnected: boolean;
+  userEmail?: string;
+  userName?: string;
 }
 
 export interface CalendarEvent {
   id: string;
   title: string;
-  date: string; // ISO string YYYY-MM-DD
+  date: string;
   time: string;
   person: string;
   link: string;
@@ -38,5 +46,5 @@ export interface CalendarEvent {
   remindMe?: boolean;
   reminderMinutes?: number;
   soundUrl?: string;
-  isExternal?: boolean; // Flaga dla zsynchronizowanych wydarzeń
+  isExternal?: boolean;
 }
