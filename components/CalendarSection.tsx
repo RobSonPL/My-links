@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { CalendarEvent, GoogleSession } from '../types';
 
 interface Props {
@@ -11,17 +11,29 @@ interface Props {
 
 type ViewType = 'month' | 'week' | 'year';
 
+const PREDEFINED_SOUNDS = [
+  { name: 'Standardowy', url: 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3' },
+  { name: 'Cyfrowy', url: 'https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3' },
+  { name: 'Zen', url: 'https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3' },
+  { name: 'Energiczny', url: 'https://assets.mixkit.co/active_storage/sfx/2190/2190-preview.mp3' },
+  { name: 'Subtelny', url: 'https://assets.mixkit.co/active_storage/sfx/2013/2013-preview.mp3' },
+  { name: 'Natura', url: 'https://assets.mixkit.co/active_storage/sfx/1113/1113-preview.mp3' },
+];
+
 const CalendarSection: React.FC<Props> = ({ events, setEvents, googleSession, setGoogleSession }) => {
   const [view, setView] = useState<ViewType>('month');
   const [currentDate, setCurrentDate] = useState(new Date());
   const [isAddingEvent, setIsAddingEvent] = useState(false);
+  const audioPreviewRef = useRef<HTMLAudioElement | null>(null);
+  
   const [newEvent, setNewEvent] = useState({
     title: '',
     date: new Date().toISOString().split('T')[0],
     time: '12:00',
     description: '',
     location: '',
-    person: 'Ja'
+    person: 'Ja',
+    soundUrl: PREDEFINED_SOUNDS[0].url
   });
 
   const daysOfWeek = ['Pn', 'Wt', 'Śr', 'Cz', 'Pt', 'So', 'Nd'];
@@ -55,6 +67,23 @@ const CalendarSection: React.FC<Props> = ({ events, setEvents, googleSession, se
     return events.filter(e => e.date === dateStr);
   };
 
+  const playPreview = (url: string) => {
+    if (audioPreviewRef.current) {
+      audioPreviewRef.current.pause();
+      audioPreviewRef.current.src = url;
+      audioPreviewRef.current.play().catch(e => console.error("Błąd odtwarzania dźwięku:", e));
+    }
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const url = URL.createObjectURL(file);
+      setNewEvent(prev => ({ ...prev, soundUrl: url }));
+      playPreview(url);
+    }
+  };
+
   const handleAddEvent = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newEvent.title) return;
@@ -74,7 +103,8 @@ const CalendarSection: React.FC<Props> = ({ events, setEvents, googleSession, se
       time: '12:00',
       description: '',
       location: '',
-      person: 'Ja'
+      person: 'Ja',
+      soundUrl: PREDEFINED_SOUNDS[0].url
     });
   };
 
@@ -186,6 +216,8 @@ const CalendarSection: React.FC<Props> = ({ events, setEvents, googleSession, se
 
   return (
     <div className="bg-white rounded-[40px] shadow-sm border border-slate-100 p-8 h-full flex flex-col relative overflow-hidden">
+      <audio ref={audioPreviewRef} hidden />
+      
       <div className="flex justify-between items-center mb-8 gap-4 flex-wrap">
         <div>
            <h2 className="text-2xl font-black text-slate-800 tracking-tighter uppercase leading-none">Kalendarz</h2>
@@ -238,7 +270,7 @@ const CalendarSection: React.FC<Props> = ({ events, setEvents, googleSession, se
             </button>
           </div>
           
-          <form onSubmit={handleAddEvent} className="space-y-5 flex-1 overflow-y-auto pr-2 custom-scrollbar">
+          <form onSubmit={handleAddEvent} className="space-y-5 flex-1 overflow-y-auto pr-2 custom-scrollbar pb-10">
             <div className="space-y-1.5">
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Tytuł</label>
               <input 
@@ -288,12 +320,44 @@ const CalendarSection: React.FC<Props> = ({ events, setEvents, googleSession, se
             <div className="space-y-1.5">
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Opis</label>
               <textarea 
-                rows={3}
+                rows={2}
                 value={newEvent.description}
                 onChange={e => setNewEvent({...newEvent, description: e.target.value})}
                 placeholder="Dodatkowe szczegóły..."
                 className="w-full px-5 py-3.5 bg-slate-50 border-2 border-slate-100 rounded-2xl focus:border-indigo-500 focus:bg-white focus:outline-none font-bold text-slate-800 resize-none"
               />
+            </div>
+
+            <div className="space-y-3">
+              <div className="flex justify-between items-center px-1">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Dźwięk Powiadomienia</label>
+                <div className="relative">
+                  <input type="file" accept="audio/*" onChange={handleFileUpload} className="hidden" id="custom-sound-upload" />
+                  <label htmlFor="custom-sound-upload" className="text-[8px] font-black text-indigo-600 bg-indigo-50 px-2 py-1 rounded-md cursor-pointer hover:bg-indigo-100 transition-colors uppercase">Wgraj własny</label>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {PREDEFINED_SOUNDS.map(sound => (
+                  <button
+                    key={sound.name}
+                    type="button"
+                    onClick={() => {
+                      setNewEvent(prev => ({ ...prev, soundUrl: sound.url }));
+                      playPreview(sound.url);
+                    }}
+                    className={`flex items-center justify-between px-3 py-2.5 rounded-xl border-2 transition-all ${
+                      newEvent.soundUrl === sound.url 
+                        ? 'bg-slate-900 border-slate-900 text-white shadow-md' 
+                        : 'bg-white border-slate-50 text-slate-500 hover:border-slate-100'
+                    }`}
+                  >
+                    <span className="text-[9px] font-black uppercase tracking-tight truncate">{sound.name}</span>
+                    <div className={`p-1 rounded-full ${newEvent.soundUrl === sound.url ? 'bg-indigo-500' : 'bg-slate-100 text-slate-300'}`}>
+                      <svg className="w-2 h-2" fill="currentColor" viewBox="0 0 20 20"><path d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z"/></svg>
+                    </div>
+                  </button>
+                ))}
+              </div>
             </div>
 
             <button 

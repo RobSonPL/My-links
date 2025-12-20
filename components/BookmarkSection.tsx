@@ -9,36 +9,42 @@ interface Props {
 
 const CATEGORIES: BookmarkCategory[] = ['e-book', 'Video', 'Foto', 'www', 'Zdrowie', 'Edukacja AI'];
 
-const CATEGORY_STYLES: Record<BookmarkCategory, { icon: React.ReactElement, gradient: string, color: string }> = {
+const CATEGORY_STYLES: Record<BookmarkCategory, { icon: React.ReactElement, gradient: string, color: string, bgColor: string }> = {
   'e-book': { 
     icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>,
     gradient: 'from-orange-400 to-red-500',
-    color: 'text-orange-600'
+    color: 'text-orange-600',
+    bgColor: 'bg-orange-50'
   },
   'Video': { 
     icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>,
     gradient: 'from-red-500 to-rose-600',
-    color: 'text-red-600'
+    color: 'text-red-600',
+    bgColor: 'bg-red-50'
   },
   'Foto': { 
     icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" /></svg>,
     gradient: 'from-purple-400 to-indigo-500',
-    color: 'text-purple-600'
+    color: 'text-purple-600',
+    bgColor: 'bg-purple-50'
   },
   'www': { 
     icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" /></svg>,
     gradient: 'from-blue-400 to-cyan-500',
-    color: 'text-blue-600'
+    color: 'text-blue-600',
+    bgColor: 'bg-blue-50'
   },
   'Zdrowie': { 
     icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" /></svg>,
     gradient: 'from-emerald-400 to-teal-500',
-    color: 'text-emerald-600'
+    color: 'text-emerald-600',
+    bgColor: 'bg-emerald-50'
   },
   'Edukacja AI': { 
     icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>,
     gradient: 'from-indigo-500 to-violet-600',
-    color: 'text-violet-600'
+    color: 'text-violet-600',
+    bgColor: 'bg-indigo-50'
   },
 };
 
@@ -47,6 +53,8 @@ const BookmarkSection: React.FC<Props> = ({ bookmarks, setBookmarks }) => {
   const [editingBookmark, setEditingBookmark] = useState<Bookmark | null>(null);
   const [formData, setFormData] = useState<{ title: string; url: string; category: BookmarkCategory }>({ title: '', url: '', category: 'www' });
   const [activeTab, setActiveTab] = useState<BookmarkCategory | 'Wszystkie' | 'Ulubione'>('Wszystkie');
+  const [isGrouped, setIsGrouped] = useState(true);
+  const [collapsedCategories, setCollapsedCategories] = useState<Set<BookmarkCategory>>(new Set());
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
 
@@ -54,7 +62,7 @@ const BookmarkSection: React.FC<Props> = ({ bookmarks, setBookmarks }) => {
     return [...bookmarks]
       .filter(b => b.clickCount > 0)
       .sort((a, b) => b.clickCount - a.clickCount)
-      .slice(0, 6); // More space in horizontal view
+      .slice(0, 6);
   }, [bookmarks]);
 
   const filteredBookmarks = useMemo(() => {
@@ -63,9 +71,28 @@ const BookmarkSection: React.FC<Props> = ({ bookmarks, setBookmarks }) => {
     return bookmarks.filter(b => b.category === activeTab);
   }, [bookmarks, activeTab, favorites]);
 
+  const toggleCategoryCollapse = (cat: BookmarkCategory) => {
+    const newCollapsed = new Set(collapsedCategories);
+    if (newCollapsed.has(cat)) {
+      newCollapsed.delete(cat);
+    } else {
+      newCollapsed.add(cat);
+    }
+    setCollapsedCategories(newCollapsed);
+  };
+
+  const getThumbnail = (url: string) => {
+    try {
+      const cleanUrl = url.startsWith('http') ? url : `https://${url}`;
+      return `https://image.thum.io/get/width/240/crop/600/noanimate/${cleanUrl}`;
+    } catch {
+      return '';
+    }
+  };
+
   const getFavicon = (url: string, size: number = 64) => {
     try {
-      const domain = new URL(url).hostname;
+      const domain = new URL(url.startsWith('http') ? url : `https://${url}`).hostname;
       return `https://www.google.com/s2/favicons?sz=${size}&domain=${domain}`;
     } catch {
       return '';
@@ -110,12 +137,76 @@ const BookmarkSection: React.FC<Props> = ({ bookmarks, setBookmarks }) => {
   };
 
   const handleDrop = (index: number) => {
-    if (draggedIndex === null || activeTab !== 'Wszystkie') return;
+    if (draggedIndex === null || activeTab !== 'Wszystkie' || isGrouped) return;
     const newBookmarks = [...bookmarks];
     const [draggedItem] = newBookmarks.splice(draggedIndex, 1);
     newBookmarks.splice(index, 0, draggedItem);
     setBookmarks(newBookmarks);
     setDraggedIndex(null);
+  };
+
+  const renderBookmarkCard = (bookmark: Bookmark, index: number) => {
+    const style = CATEGORY_STYLES[bookmark.category];
+    return (
+      <div 
+        key={bookmark.id} 
+        draggable={activeTab === 'Wszystkie' && !isGrouped}
+        onDragStart={() => handleDragStart(index)}
+        onDragOver={handleDragOver}
+        onDrop={() => handleDrop(index)}
+        onMouseEnter={() => setHoveredId(bookmark.id)}
+        onMouseLeave={() => setHoveredId(null)}
+        className={`group relative ${activeTab === 'Wszystkie' && !isGrouped ? 'cursor-move' : 'cursor-default'} ${draggedIndex === index ? 'opacity-30' : ''}`}
+      >
+        <a 
+          href={bookmark.url.startsWith('http') ? bookmark.url : `https://${bookmark.url}`}
+          target="_blank" 
+          rel="noopener noreferrer"
+          onClick={(e) => { 
+            if(draggedIndex !== null) e.preventDefault(); 
+            else handleClick(bookmark.id);
+          }}
+          className="flex flex-col rounded-2xl overflow-hidden border border-slate-100 bg-slate-50 hover:bg-white hover:border-indigo-100 transition-all duration-300 hover:shadow-xl hover:shadow-slate-200/50"
+        >
+          <div className="relative h-24 overflow-hidden bg-slate-200 border-b border-slate-100 group-hover:h-28 transition-all duration-500">
+            <img 
+              src={getThumbnail(bookmark.url)} 
+              alt="" 
+              className="w-full h-full object-cover grayscale-[0.5] group-hover:grayscale-0 transition-all duration-700"
+              onError={(e) => {
+                (e.target as HTMLImageElement).src = `https://placehold.co/400x300/f8fafc/cbd5e1?text=${bookmark.title.substring(0, 1)}`;
+              }}
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+            
+            <div className="absolute -bottom-3 left-3 w-8 h-8 rounded-lg bg-white shadow-md p-1.5 z-10 border border-slate-50">
+              <img src={getFavicon(bookmark.url)} alt="" className="w-full h-full object-contain" />
+            </div>
+          </div>
+
+          <div className="p-4 pt-5">
+            <span className="text-[10px] font-black text-slate-800 line-clamp-1 uppercase tracking-tight mb-1">
+              {bookmark.title}
+            </span>
+            <div className="flex items-center justify-between">
+               <span className={`text-[8px] font-black px-1.5 py-0.5 rounded bg-white ${style.color} uppercase border border-slate-50`}>
+                {bookmark.category}
+              </span>
+              <span className="text-[8px] text-slate-300 font-bold uppercase">{bookmark.clickCount} klików</span>
+            </div>
+          </div>
+        </a>
+
+        <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 flex gap-1.5 transition-all duration-300 z-20">
+          <button onClick={(e) => { e.preventDefault(); handleOpenForm(bookmark); }} className="p-1.5 bg-white/90 backdrop-blur rounded-lg shadow-lg border border-slate-100 text-slate-500 hover:text-indigo-600 hover:scale-110 transition-all">
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+          </button>
+          <button onClick={(e) => { e.preventDefault(); handleDelete(bookmark.id); }} className="p-1.5 bg-white/90 backdrop-blur rounded-lg shadow-lg border border-slate-100 text-slate-500 hover:text-red-500 hover:scale-110 transition-all">
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" /></svg>
+          </button>
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -127,17 +218,31 @@ const BookmarkSection: React.FC<Props> = ({ bookmarks, setBookmarks }) => {
           </div>
           <h2 className="text-xl font-black text-slate-800 tracking-tight">Twoje Zakładki</h2>
         </div>
-        <button 
-          onClick={() => handleOpenForm()}
-          className="group flex items-center gap-2 text-xs font-black bg-slate-900 text-white px-4 py-2.5 rounded-2xl hover:bg-indigo-600 transition-all shadow-md active:scale-95"
-        >
-          <span>DODAJ NOWĄ</span>
-          <span className="text-lg leading-none">+</span>
-        </button>
+        <div className="flex items-center gap-3">
+          {activeTab === 'Wszystkie' && (
+            <button 
+              onClick={() => setIsGrouped(!isGrouped)}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-[10px] font-black uppercase transition-all border ${
+                isGrouped 
+                  ? 'bg-indigo-50 border-indigo-200 text-indigo-600 shadow-sm' 
+                  : 'bg-white border-slate-200 text-slate-400 hover:border-slate-300'
+              }`}
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 10h16M4 14h16M4 18h16" /></svg>
+              {isGrouped ? 'Widok grupowy' : 'Siatka'}
+            </button>
+          )}
+          <button 
+            onClick={() => handleOpenForm()}
+            className="group flex items-center gap-2 text-xs font-black bg-slate-900 text-white px-4 py-2.5 rounded-2xl hover:bg-indigo-600 transition-all shadow-md active:scale-95"
+          >
+            <span>DODAJ NOWĄ</span>
+            <span className="text-lg leading-none">+</span>
+          </button>
+        </div>
       </div>
 
       <div className="flex flex-col lg:flex-row gap-6">
-        {/* Left: Tabs & Favorites Integration */}
         <div className="flex flex-wrap items-center gap-2 p-1.5 bg-slate-50 rounded-2xl border border-slate-100 flex-1">
           {['Wszystkie', 'Ulubione', ...CATEGORIES].map(cat => (
             <button
@@ -159,7 +264,6 @@ const BookmarkSection: React.FC<Props> = ({ bookmarks, setBookmarks }) => {
           ))}
         </div>
         
-        {/* Favorites Quick Bar */}
         {favorites.length > 0 && activeTab !== 'Ulubione' && (
            <div className="flex items-center gap-3 px-4 py-2 bg-amber-50 rounded-2xl border border-amber-100">
               <span className="text-[10px] font-black text-amber-600 uppercase tracking-widest">TOP:</span>
@@ -174,81 +278,48 @@ const BookmarkSection: React.FC<Props> = ({ bookmarks, setBookmarks }) => {
         )}
       </div>
 
-      {/* Bookmark Grid - Expanded Columns for Horizontal view */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-4 min-h-[140px]">
-        {filteredBookmarks.length === 0 ? (
-          <div className="col-span-full py-12 text-center text-slate-300 font-bold uppercase tracking-widest text-sm bg-slate-50/50 rounded-3xl border-2 border-dashed border-slate-100">
-            Brak zakładek w tej sekcji
-          </div>
-        ) : (
-          filteredBookmarks.map((bookmark, index) => {
-            const style = CATEGORY_STYLES[bookmark.category];
-            const isHovered = hoveredId === bookmark.id;
+      <div className="flex flex-col gap-8 min-h-[140px]">
+        {activeTab === 'Wszystkie' && isGrouped ? (
+          CATEGORIES.map(cat => {
+            const catBookmarks = bookmarks.filter(b => b.category === cat);
+            if (catBookmarks.length === 0) return null;
+            const isCollapsed = collapsedCategories.has(cat);
+            const style = CATEGORY_STYLES[cat];
 
             return (
-              <div 
-                key={bookmark.id} 
-                draggable={activeTab === 'Wszystkie'}
-                onDragStart={() => handleDragStart(index)}
-                onDragOver={handleDragOver}
-                onDrop={() => handleDrop(index)}
-                onMouseEnter={() => setHoveredId(bookmark.id)}
-                onMouseLeave={() => setHoveredId(null)}
-                className={`group relative ${activeTab === 'Wszystkie' ? 'cursor-move' : 'cursor-default'} ${draggedIndex === index ? 'opacity-30' : ''}`}
-              >
-                <a 
-                  href={bookmark.url.startsWith('http') ? bookmark.url : `https://${bookmark.url}`}
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  onClick={(e) => { 
-                    if(draggedIndex !== null) e.preventDefault(); 
-                    else handleClick(bookmark.id);
-                  }}
-                  className="flex flex-col items-center p-4 rounded-3xl border border-transparent hover:border-slate-100 hover:bg-slate-50 transition-all duration-300 group-hover:shadow-lg group-hover:shadow-slate-100"
+              <div key={cat} className="flex flex-col gap-4">
+                <button 
+                  onClick={() => toggleCategoryCollapse(cat)}
+                  className={`flex items-center justify-between w-full px-5 py-3 rounded-2xl border transition-all ${style.bgColor} ${isCollapsed ? 'opacity-70' : ''} border-slate-100 hover:border-indigo-100`}
                 >
-                  <div className={`w-12 h-12 rounded-2xl shadow-sm flex items-center justify-center overflow-hidden mb-3 border border-slate-100 relative bg-gradient-to-br ${style.gradient} p-[2px] transform group-hover:-translate-y-1 transition-transform`}>
-                    <div className="bg-white w-full h-full rounded-[14px] flex items-center justify-center">
-                      <img src={getFavicon(bookmark.url)} alt={bookmark.title} className="w-7 h-7 object-contain" />
-                    </div>
+                  <div className="flex items-center gap-3">
+                    <span className={style.color}>{style.icon}</span>
+                    <span className="text-xs font-black uppercase tracking-widest text-slate-700">{cat}</span>
+                    <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-white text-slate-400 shadow-sm">{catBookmarks.length}</span>
                   </div>
-                  <span className="text-[10px] font-black text-slate-800 truncate w-full text-center uppercase tracking-tighter">
-                    {bookmark.title}
-                  </span>
-                </a>
-
-                {/* Floating Preview Card - Adjust Position for Multi-column */}
-                {isHovered && (
-                  <div className="absolute top-full left-1/2 -translate-x-1/2 mt-4 w-56 bg-white rounded-3xl shadow-2xl border border-slate-100 p-5 z-[60] pointer-events-none transform origin-top animate-in fade-in zoom-in-95 duration-300">
-                    <div className={`h-28 w-full rounded-2xl bg-gradient-to-br ${style.gradient} flex items-center justify-center mb-4 shadow-inner relative overflow-hidden`}>
-                       <div className="absolute inset-0 bg-white/10 backdrop-blur-[1px]" />
-                       <img src={getFavicon(bookmark.url, 128)} alt="" className="w-16 h-16 drop-shadow-2xl relative z-10" />
-                    </div>
-                    <div className="space-y-1.5">
-                      <p className="text-xs font-black text-slate-900 line-clamp-1 uppercase tracking-tight">{bookmark.title}</p>
-                      <p className="text-[10px] text-slate-400 font-medium truncate">{new URL(bookmark.url.startsWith('http') ? bookmark.url : `https://${bookmark.url}`).hostname}</p>
-                      <div className="flex items-center gap-2 mt-3 pt-3 border-t border-slate-50">
-                        <span className={`text-[8px] font-black px-2 py-1 rounded-lg bg-slate-50 ${style.color} uppercase border border-slate-100`}>
-                           {bookmark.category}
-                        </span>
-                        <span className="text-[9px] font-black text-slate-300 ml-auto uppercase tracking-tighter">
-                          Hits: {bookmark.clickCount}
-                        </span>
-                      </div>
-                    </div>
+                  <svg className={`w-4 h-4 text-slate-400 transition-transform duration-300 ${isCollapsed ? '-rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                
+                {!isCollapsed && (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6 animate-in fade-in slide-in-from-top-2 duration-300">
+                    {catBookmarks.map((bookmark, idx) => renderBookmarkCard(bookmark, bookmarks.indexOf(bookmark)))}
                   </div>
                 )}
-                
-                <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 flex flex-col space-y-1 transition-all duration-300 translate-x-2 group-hover:translate-x-0 z-20">
-                  <button onClick={(e) => { e.preventDefault(); handleOpenForm(bookmark); }} className="p-1.5 bg-white rounded-xl shadow-lg border border-slate-100 text-slate-400 hover:text-indigo-500 hover:scale-110 transition-all">
-                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
-                  </button>
-                  <button onClick={(e) => { e.preventDefault(); handleDelete(bookmark.id); }} className="p-1.5 bg-white rounded-xl shadow-lg border border-slate-100 text-slate-400 hover:text-red-500 hover:scale-110 transition-all">
-                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" /></svg>
-                  </button>
-                </div>
               </div>
             );
           })
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
+            {filteredBookmarks.length === 0 ? (
+              <div className="col-span-full py-12 text-center text-slate-300 font-bold uppercase tracking-widest text-sm bg-slate-50/50 rounded-3xl border-2 border-dashed border-slate-100">
+                Brak zakładek w tej sekcji
+              </div>
+            ) : (
+              filteredBookmarks.map((bookmark, index) => renderBookmarkCard(bookmark, index))
+            )}
+          </div>
         )}
       </div>
 

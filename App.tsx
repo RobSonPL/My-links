@@ -6,6 +6,8 @@ import CalendarSection from './components/CalendarSection.tsx';
 import { Bookmark, Todo, CalendarEvent, TodoCategory, GoogleSession } from './types.ts';
 
 const App: React.FC = () => {
+  const [currentTime, setCurrentTime] = useState(new Date());
+
   const initialBookmarks: Bookmark[] = [
     { id: '1', title: 'Google', url: 'https://google.com', category: 'www', clickCount: 42 },
     { id: '2', title: 'YouTube', url: 'https://youtube.com', category: 'Video', clickCount: 38 },
@@ -49,6 +51,11 @@ const App: React.FC = () => {
   const [googleSession, setGoogleSession] = useState<GoogleSession>(() => loadFromStorage('hub_google_session_v4', { isConnected: false }));
 
   useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
     try {
       localStorage.setItem('hub_bookmarks_v4', JSON.stringify(bookmarks));
       localStorage.setItem('hub_todos_v4', JSON.stringify(todos));
@@ -67,12 +74,23 @@ const App: React.FC = () => {
           <p className="text-[11px] text-indigo-500 font-bold uppercase tracking-[0.4em] mt-3">Produktywność • Archiwum • Kalendarz</p>
         </div>
         
-        <div className="bg-white px-8 py-4 rounded-[32px] shadow-sm border border-slate-50 flex flex-col items-center md:items-end">
-          <div className="text-xl text-slate-800 font-black tracking-tight">
-            {new Date().toLocaleDateString('pl-PL', { day: 'numeric', month: 'long', year: 'numeric' })}
+        <div className="flex gap-4">
+          <div className="bg-white px-8 py-4 rounded-[32px] shadow-sm border border-slate-50 flex flex-col items-center md:items-end min-w-[180px]">
+            <div className="text-xl text-slate-800 font-black tracking-tight">
+              {currentTime.toLocaleDateString('pl-PL', { day: 'numeric', month: 'long', year: 'numeric' })}
+            </div>
+            <div className="text-[10px] text-slate-400 font-black uppercase tracking-widest mt-1">
+              {currentTime.toLocaleDateString('pl-PL', { weekday: 'long' })}
+            </div>
           </div>
-          <div className="text-[10px] text-slate-400 font-black uppercase tracking-widest mt-1">
-            {new Date().toLocaleDateString('pl-PL', { weekday: 'long' })}
+          
+          <div className="bg-slate-900 px-8 py-4 rounded-[32px] shadow-xl border border-slate-800 flex flex-col items-center justify-center min-w-[140px]">
+            <div className="text-2xl text-white font-black tracking-tighter tabular-nums leading-none">
+              {currentTime.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+            </div>
+            <div className="text-[9px] text-indigo-400 font-black uppercase tracking-[0.2em] mt-1">
+              Czas rzeczywisty
+            </div>
           </div>
         </div>
       </header>
@@ -87,7 +105,7 @@ const App: React.FC = () => {
       </main>
 
       <footer className="max-w-7xl mx-auto mt-24 pb-12 text-center border-t border-slate-50 pt-12">
-        <p className="text-[9px] font-black text-slate-300 uppercase tracking-[0.5em]">System Dashboard v5.0 • ESM Native Build</p>
+        <p className="text-[9px] font-black text-slate-300 uppercase tracking-[0.5em]">System Dashboard v5.1 • ESM Native Build</p>
       </footer>
     </div>
   );
