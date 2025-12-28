@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import BookmarkSection from './components/BookmarkSection.tsx';
 import TodoSection from './components/TodoSection.tsx';
 import CalendarSection from './components/CalendarSection.tsx';
-import { Bookmark, Todo, CalendarEvent, TodoCategory, GoogleSession } from './types.ts';
+import { Bookmark, Todo, CalendarEvent, TodoCategory, GoogleSession, MoodEntry } from './types.ts';
 
 const App: React.FC = () => {
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -45,26 +45,53 @@ const App: React.FC = () => {
     }
   };
 
-  const [bookmarks, setBookmarks] = useState<Bookmark[]>(() => loadFromStorage('hub_bookmarks_v4', initialBookmarks));
-  const [todos, setTodos] = useState<Todo[]>(() => loadFromStorage('hub_todos_v4', initialTodos));
-  const [events, setEvents] = useState<CalendarEvent[]>(() => loadFromStorage('hub_events_v4', getInitialEvents()));
-  const [googleSession, setGoogleSession] = useState<GoogleSession>(() => loadFromStorage('hub_google_session_v4', { isConnected: false }));
+  const [bookmarks, setBookmarks] = useState<Bookmark[]>(() => loadFromStorage('hub_bookmarks_v5', initialBookmarks));
+  const [todos, setTodos] = useState<Todo[]>(() => loadFromStorage('hub_todos_v5', initialTodos));
+  const [events, setEvents] = useState<CalendarEvent[]>(() => loadFromStorage('hub_events_v5', getInitialEvents()));
+  const [moods, setMoods] = useState<MoodEntry[]>(() => loadFromStorage('hub_moods_v5', []));
+  const [googleSession, setGoogleSession] = useState<GoogleSession>(() => loadFromStorage('hub_google_session_v5', { isConnected: false }));
 
+  // Real-time clock and Todo reminder check
   useEffect(() => {
-    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+    const timer = setInterval(() => {
+      const now = new Date();
+      setCurrentTime(now);
+      
+      // Check reminders
+      const timeStr = now.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' });
+      const todayStr = now.toISOString().split('T')[0];
+
+      todos.forEach(todo => {
+        if (todo.remindMe && !todo.completed && todo.reminderTime === timeStr && todo.lastNotified !== todayStr) {
+           if ("Notification" in window && Notification.permission === "granted") {
+             new Notification(`Hub Reminder: ${todo.text}`);
+           } else {
+             alert(`ZADANIE: ${todo.text}`);
+           }
+           // Mark as notified for today
+           setTodos(prev => prev.map(t => t.id === todo.id ? { ...t, lastNotified: todayStr } : t));
+        }
+      });
+    }, 1000);
+
+    if ("Notification" in window && Notification.permission !== "denied") {
+      Notification.requestPermission();
+    }
+
     return () => clearInterval(timer);
-  }, []);
+  }, [todos]);
 
   useEffect(() => {
     try {
-      localStorage.setItem('hub_bookmarks_v4', JSON.stringify(bookmarks));
-      localStorage.setItem('hub_todos_v4', JSON.stringify(todos));
-      localStorage.setItem('hub_events_v4', JSON.stringify(events));
-      localStorage.setItem('hub_google_session_v4', JSON.stringify(googleSession));
+      localStorage.setItem('hub_bookmarks_v5', JSON.stringify(bookmarks));
+      localStorage.setItem('hub_todos_v5', JSON.stringify(todos));
+      localStorage.setItem('hub_events_v5', JSON.stringify(events));
+      localStorage.setItem('hub_moods_v5', JSON.stringify(moods));
+      localStorage.setItem('hub_google_session_v5', JSON.stringify(googleSession));
     } catch (e) {
       console.error("Błąd zapisu do localStorage", e);
     }
-  }, [bookmarks, todos, events, googleSession]);
+  }, [bookmarks, todos, events, googleSession, moods]);
 
   return (
     <div className="min-h-screen bg-[#fcfcfc] text-slate-900 p-4 md:p-8 font-sans">
@@ -100,12 +127,19 @@ const App: React.FC = () => {
         
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 items-start">
           <TodoSection todos={todos} setTodos={setTodos} />
-          <CalendarSection events={events} setEvents={setEvents} googleSession={googleSession} setGoogleSession={setGoogleSession} />
+          <CalendarSection 
+            events={events} 
+            setEvents={setEvents} 
+            googleSession={googleSession} 
+            setGoogleSession={setGoogleSession}
+            moods={moods}
+            setMoods={setMoods}
+          />
         </div>
       </main>
 
       <footer className="max-w-7xl mx-auto mt-24 pb-12 text-center border-t border-slate-50 pt-12">
-        <p className="text-[9px] font-black text-slate-300 uppercase tracking-[0.5em]">System Dashboard v5.1 • ESM Native Build</p>
+        <p className="text-[9px] font-black text-slate-300 uppercase tracking-[0.5em]">System Dashboard v5.5 • Reminders & Mood Tracker</p>
       </footer>
     </div>
   );

@@ -5,6 +5,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Personal Productivity Hub</title>
+    <!-- Ikona M -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 rx=%2220%22 fill=%22%234f46e5%22/><text y=%22.9em%22 x=%2250%25%22 font-size=%2270%22 font-weight=%22900%22 text-anchor=%22middle%22 fill=%22white%22 font-family=%22Inter, sans-serif%22>M</text></svg>">
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&display=swap" rel="stylesheet">
     <style>
@@ -26,6 +28,11 @@
             letter-spacing: 0.2em;
             font-size: 10px;
         }
+        /* Custom scrollbars */
+        .custom-scrollbar::-webkit-scrollbar { height: 6px; width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #cbd5e1; }
     </style>
 <script type="importmap">
 {
@@ -40,7 +47,6 @@
 </head>
 <body>
     <div id="root"></div>
-    <!-- Kluczowy skrypt startowy -->
     <script type="module" src="index.tsx"></script>
 </body>
 </html>

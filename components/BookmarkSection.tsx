@@ -71,6 +71,14 @@ const BookmarkSection: React.FC<Props> = ({ bookmarks, setBookmarks }) => {
     return bookmarks.filter(b => b.category === activeTab);
   }, [bookmarks, activeTab, favorites]);
 
+  const handleOpenAllInCategory = (cat: BookmarkCategory, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const catBookmarks = bookmarks.filter(b => b.category === cat);
+    catBookmarks.forEach(b => {
+      window.open(b.url.startsWith('http') ? b.url : `https://${b.url}`, '_blank');
+    });
+  };
+
   const toggleCategoryCollapse = (cat: BookmarkCategory) => {
     const newCollapsed = new Set(collapsedCategories);
     if (newCollapsed.has(cat)) {
@@ -179,6 +187,11 @@ const BookmarkSection: React.FC<Props> = ({ bookmarks, setBookmarks }) => {
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
             
+            {/* Kategorie Card Icon */}
+            <div className="absolute top-2 left-2 p-1.5 bg-white/80 backdrop-blur rounded-lg shadow-sm">
+                <span className={style.color}>{style.icon}</span>
+            </div>
+
             <div className="absolute -bottom-3 left-3 w-8 h-8 rounded-lg bg-white shadow-md p-1.5 z-10 border border-slate-50">
               <img src={getFavicon(bookmark.url)} alt="" className="w-full h-full object-contain" />
             </div>
@@ -189,8 +202,8 @@ const BookmarkSection: React.FC<Props> = ({ bookmarks, setBookmarks }) => {
               {bookmark.title}
             </span>
             <div className="flex items-center justify-between">
-               <span className={`text-[8px] font-black px-1.5 py-0.5 rounded bg-white ${style.color} uppercase border border-slate-50`}>
-                {bookmark.category}
+               <span className={`text-[8px] font-black px-1.5 py-0.5 rounded bg-white ${style.color} uppercase border border-slate-50 flex items-center gap-1`}>
+                {style.icon} {bookmark.category}
               </span>
               <span className="text-[8px] text-slate-300 font-bold uppercase">{bookmark.clickCount} klików</span>
             </div>
@@ -288,19 +301,31 @@ const BookmarkSection: React.FC<Props> = ({ bookmarks, setBookmarks }) => {
 
             return (
               <div key={cat} className="flex flex-col gap-4">
-                <button 
-                  onClick={() => toggleCategoryCollapse(cat)}
-                  className={`flex items-center justify-between w-full px-5 py-3 rounded-2xl border transition-all ${style.bgColor} ${isCollapsed ? 'opacity-70' : ''} border-slate-100 hover:border-indigo-100`}
+                <div 
+                  className={`flex items-center justify-between w-full px-5 py-3 rounded-2xl border transition-all ${style.bgColor} ${isCollapsed ? 'opacity-70' : ''} border-slate-100`}
                 >
-                  <div className="flex items-center gap-3">
+                  <button 
+                    onClick={() => toggleCategoryCollapse(cat)}
+                    className="flex items-center gap-3 flex-1"
+                  >
                     <span className={style.color}>{style.icon}</span>
                     <span className="text-xs font-black uppercase tracking-widest text-slate-700">{cat}</span>
                     <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-white text-slate-400 shadow-sm">{catBookmarks.length}</span>
-                  </div>
-                  <svg className={`w-4 h-4 text-slate-400 transition-transform duration-300 ${isCollapsed ? '-rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M19 9l-7 7-7-7" />
-                  </svg>
-                </button>
+                    <svg className={`w-4 h-4 text-slate-400 transition-transform duration-300 ${isCollapsed ? '-rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+
+                  {!isCollapsed && (
+                    <button 
+                      onClick={(e) => handleOpenAllInCategory(cat, e)}
+                      className="ml-4 px-3 py-1.5 bg-white text-[9px] font-black uppercase tracking-tight text-slate-500 rounded-xl border border-slate-200 hover:bg-slate-900 hover:text-white hover:border-slate-900 transition-all flex items-center gap-1.5"
+                    >
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                      Otwórz wszystkie
+                    </button>
+                  )}
+                </div>
                 
                 {!isCollapsed && (
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6 animate-in fade-in slide-in-from-top-2 duration-300">

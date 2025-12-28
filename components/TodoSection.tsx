@@ -11,6 +11,8 @@ const TodoSection: React.FC<Props> = ({ todos, setTodos }) => {
   const [showArchive, setShowArchive] = useState(false);
   const [newTaskText, setNewTaskText] = useState('');
   const [selectedCat, setSelectedCat] = useState<TodoCategory>(TodoCategory.TODAY);
+  const [remindMe, setRemindMe] = useState(false);
+  const [reminderTime, setReminderTime] = useState('12:00');
 
   const handleCompleteAndArchive = (id: string) => {
     setTodos(prev => prev.map(t => 
@@ -28,11 +30,14 @@ const TodoSection: React.FC<Props> = ({ todos, setTodos }) => {
       category: selectedCat,
       completed: false,
       isArchived: false,
-      createdAt: Date.now()
+      createdAt: Date.now(),
+      remindMe: remindMe,
+      reminderTime: remindMe ? reminderTime : undefined
     };
     
     setTodos(prev => [newTask, ...prev]);
     setNewTaskText('');
+    setRemindMe(false);
   };
 
   const restoreTodo = (id: string) => {
@@ -78,6 +83,28 @@ const TodoSection: React.FC<Props> = ({ todos, setTodos }) => {
             placeholder="Co masz do zrobienia?"
             className="w-full bg-white border-none rounded-xl px-4 py-3 text-sm font-bold placeholder:text-slate-300 focus:ring-2 focus:ring-indigo-500 mb-4 shadow-sm"
           />
+          
+          <div className="flex flex-wrap items-center gap-4 mb-4">
+             <div className="flex items-center gap-2">
+                <input 
+                  type="checkbox" 
+                  id="remind_todo"
+                  checked={remindMe}
+                  onChange={e => setRemindMe(e.target.checked)}
+                  className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500"
+                />
+                <label htmlFor="remind_todo" className="text-[10px] font-black text-slate-400 uppercase tracking-widest cursor-pointer">Przypomnij mi</label>
+             </div>
+             {remindMe && (
+               <input 
+                type="time" 
+                value={reminderTime}
+                onChange={e => setReminderTime(e.target.value)}
+                className="bg-white border-none rounded-lg px-2 py-1 text-[10px] font-black text-slate-600 shadow-sm"
+               />
+             )}
+          </div>
+
           <div className="flex flex-wrap gap-2">
             {(Object.keys(categoryLabels) as TodoCategory[]).map(cat => (
               <button
@@ -119,9 +146,17 @@ const TodoSection: React.FC<Props> = ({ todos, setTodos }) => {
                             onChange={() => handleCompleteAndArchive(todo.id)} 
                             className="w-5 h-5 rounded-lg border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer" 
                           />
-                          <span className="text-sm font-bold text-slate-700 line-clamp-2">
-                            {todo.text}
-                          </span>
+                          <div className="flex flex-col">
+                            <span className="text-sm font-bold text-slate-700 line-clamp-2">
+                                {todo.text}
+                            </span>
+                            {todo.remindMe && (
+                                <div className="flex items-center gap-1 mt-1">
+                                    <svg className="w-3 h-3 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                    <span className="text-[8px] font-black text-indigo-400 uppercase">{todo.reminderTime}</span>
+                                </div>
+                            )}
+                          </div>
                         </div>
                       </div>
                     ))

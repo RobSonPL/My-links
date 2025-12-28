@@ -25,12 +25,20 @@ export interface Todo {
   remindMe?: boolean;
   reminderTime?: string;
   createdAt: number;
+  lastNotified?: string; // Data ostatniego powiadomienia, aby uniknąć spamu
 }
 
 export interface GoogleSession {
   isConnected: boolean;
   userEmail?: string;
   userName?: string;
+}
+
+export type EmotionType = 'super' | 'ok' | 'kochany' | 'słabo' | 'masakra';
+
+export interface MoodEntry {
+  date: string; // YYYY-MM-DD
+  emotion: EmotionType;
 }
 
 export interface CalendarEvent {
