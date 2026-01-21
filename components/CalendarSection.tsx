@@ -235,6 +235,11 @@ const CalendarSection: React.FC<Props> = ({ events, setEvents, googleSession, se
                 <p className={`text-[9px] font-black uppercase leading-tight truncate ${dayMood ? 'text-white' : 'text-slate-800'}`} title={e.title}>{e.title}</p>
                 <p className={`text-[8px] font-bold mt-0.5 ${dayMood ? 'text-white/70' : 'text-slate-400'}`}>{e.time}</p>
                 {e.description && <p className={`text-[7px] mt-1 line-clamp-1 italic ${dayMood ? 'text-white/60' : 'text-slate-400'}`}>{e.description}</p>}
+                {e.link && (
+                  <a href={e.link} target="_blank" rel="noopener noreferrer" className={`inline-block mt-2 text-[7px] font-black uppercase tracking-widest ${dayMood ? 'text-white border-white/40' : 'text-indigo-600 border-indigo-100'} border px-1.5 py-0.5 rounded-md`}>
+                    Otwórz link
+                  </a>
+                )}
               </div>
             ))}
             {dayEvents.length === 0 && <div className={`h-20 border border-dashed rounded-xl ${dayMood ? 'border-white/20' : 'border-slate-100'}`} />}
@@ -256,22 +261,23 @@ const CalendarSection: React.FC<Props> = ({ events, setEvents, googleSession, se
                 <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{months[currentDate.getMonth()]} {currentDate.getFullYear()}</p>
                 <div className="h-1 w-1 bg-slate-200 rounded-full" />
                 
-                {/* Visual Mood Selector Bar */}
-                <div className="flex items-center gap-1 bg-slate-50 p-1 rounded-full border border-slate-100">
+                {/* Visual Mood Selector Bar - Only colors as requested */}
+                <div className="flex items-center gap-1.5 bg-slate-50 p-1.5 rounded-full border border-slate-100">
                     {EMOTIONS.map(e => (
                         <button
                             key={e.type}
                             onClick={() => setMood(e.type)}
-                            title={`Dzisiaj czuję się: ${e.label}`}
+                            title={`Dzisiaj: ${e.label}`}
                             className={`w-4 h-4 rounded-full ${e.color} hover:scale-125 transition-transform shadow-sm`}
                         />
                     ))}
                     <div className="w-px h-3 bg-slate-200 mx-1" />
                     <button 
                         onClick={() => setIsMoodSelectorOpen(!isMoodSelectorOpen)}
-                        className="text-[8px] font-black text-slate-400 uppercase pr-1"
+                        className="p-1 rounded-full hover:bg-slate-200 transition-colors"
+                        title="Więcej opcji nastroju"
                     >
-                        Nastrój
+                        <svg className="w-3 h-3 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" /></svg>
                     </button>
                 </div>
            </div>

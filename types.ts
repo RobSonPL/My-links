@@ -1,5 +1,5 @@
 
-export type BookmarkCategory = 'e-book' | 'Video' | 'Foto' | 'www' | 'Zdrowie' | 'Edukacja AI';
+export type BookmarkCategory = string;
 
 export interface Bookmark {
   id: string;

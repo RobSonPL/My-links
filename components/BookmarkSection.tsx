@@ -7,9 +7,16 @@ interface Props {
   setBookmarks: React.Dispatch<React.SetStateAction<Bookmark[]>>;
 }
 
-const CATEGORIES: BookmarkCategory[] = ['e-book', 'Video', 'Foto', 'www', 'Zdrowie', 'Edukacja AI'];
+const DEFAULT_CATEGORIES: BookmarkCategory[] = ['e-book', 'Video', 'Foto', 'www', 'Zdrowie', 'Edukacja AI'];
 
-const CATEGORY_STYLES: Record<BookmarkCategory, { icon: React.ReactElement, gradient: string, color: string, bgColor: string }> = {
+const DEFAULT_STYLE = { 
+  icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" /></svg>,
+  gradient: 'from-slate-400 to-slate-500',
+  color: 'text-slate-600',
+  bgColor: 'bg-slate-50'
+};
+
+const CATEGORY_STYLES: Record<string, { icon: React.ReactElement, gradient: string, color: string, bgColor: string }> = {
   'e-book': { 
     icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>,
     gradient: 'from-orange-400 to-red-500',
@@ -52,11 +59,19 @@ const BookmarkSection: React.FC<Props> = ({ bookmarks, setBookmarks }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editingBookmark, setEditingBookmark] = useState<Bookmark | null>(null);
   const [formData, setFormData] = useState<{ title: string; url: string; category: BookmarkCategory }>({ title: '', url: '', category: 'www' });
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [isAddingNewCat, setIsAddingNewCat] = useState(false);
+  
   const [activeTab, setActiveTab] = useState<BookmarkCategory | 'Wszystkie' | 'Ulubione'>('Wszystkie');
   const [isGrouped, setIsGrouped] = useState(true);
   const [collapsedCategories, setCollapsedCategories] = useState<Set<BookmarkCategory>>(new Set());
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
+
+  const categories = useMemo(() => {
+    const bookmarkCats = bookmarks.map(b => b.category);
+    return Array.from(new Set([...DEFAULT_CATEGORIES, ...bookmarkCats]));
+  }, [bookmarks]);
 
   const favorites = useMemo(() => {
     return [...bookmarks]
@@ -74,6 +89,11 @@ const BookmarkSection: React.FC<Props> = ({ bookmarks, setBookmarks }) => {
   const handleOpenAllInCategory = (cat: BookmarkCategory, e: React.MouseEvent) => {
     e.stopPropagation();
     const catBookmarks = bookmarks.filter(b => b.category === cat);
+    if (catBookmarks.length > 3) {
+      if (!window.confirm(`Czy na pewno chcesz otworzyć ${catBookmarks.length} stron w nowych oknach? Niektóre przeglądarki mogą blokować wyskakujące okna.`)) {
+        return;
+      }
+    }
     catBookmarks.forEach(b => {
       window.open(b.url.startsWith('http') ? b.url : `https://${b.url}`, '_blank');
     });
@@ -119,15 +139,19 @@ const BookmarkSection: React.FC<Props> = ({ bookmarks, setBookmarks }) => {
       setEditingBookmark(null);
       setFormData({ title: '', url: '', category: 'www' });
     }
+    setIsAddingNewCat(false);
+    setNewCategoryName('');
     setIsEditing(true);
   };
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
+    const finalCategory = isAddingNewCat && newCategoryName.trim() ? newCategoryName.trim() : formData.category;
+    
     if (editingBookmark) {
-      setBookmarks(bookmarks.map(b => b.id === editingBookmark.id ? { ...b, ...formData } : b));
+      setBookmarks(bookmarks.map(b => b.id === editingBookmark.id ? { ...b, ...formData, category: finalCategory } : b));
     } else {
-      setBookmarks([...bookmarks, { ...formData, id: Date.now().toString(), clickCount: 0 }]);
+      setBookmarks([...bookmarks, { ...formData, category: finalCategory, id: Date.now().toString(), clickCount: 0 }]);
     }
     setIsEditing(false);
   };
@@ -153,8 +177,10 @@ const BookmarkSection: React.FC<Props> = ({ bookmarks, setBookmarks }) => {
     setDraggedIndex(null);
   };
 
+  const getCatStyle = (cat: string) => CATEGORY_STYLES[cat] || DEFAULT_STYLE;
+
   const renderBookmarkCard = (bookmark: Bookmark, index: number) => {
-    const style = CATEGORY_STYLES[bookmark.category];
+    const style = getCatStyle(bookmark.category);
     return (
       <div 
         key={bookmark.id} 
@@ -185,9 +211,13 @@ const BookmarkSection: React.FC<Props> = ({ bookmarks, setBookmarks }) => {
                 (e.target as HTMLImageElement).src = `https://placehold.co/400x300/f8fafc/cbd5e1?text=${bookmark.title.substring(0, 1)}`;
               }}
             />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                <div className="bg-white/90 text-slate-900 px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-tighter scale-75 group-hover:scale-100 transition-transform flex items-center gap-1.5 shadow-lg">
+                  Otwórz w nowym oknie
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                </div>
+            </div>
             
-            {/* Kategorie Card Icon */}
             <div className="absolute top-2 left-2 p-1.5 bg-white/80 backdrop-blur rounded-lg shadow-sm">
                 <span className={style.color}>{style.icon}</span>
             </div>
@@ -257,10 +287,10 @@ const BookmarkSection: React.FC<Props> = ({ bookmarks, setBookmarks }) => {
 
       <div className="flex flex-col lg:flex-row gap-6">
         <div className="flex flex-wrap items-center gap-2 p-1.5 bg-slate-50 rounded-2xl border border-slate-100 flex-1">
-          {['Wszystkie', 'Ulubione', ...CATEGORIES].map(cat => (
+          {['Wszystkie', 'Ulubione', ...categories].map(cat => (
             <button
               key={cat}
-              onClick={() => setActiveTab(cat as any)}
+              onClick={() => setActiveTab(cat)}
               className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-2 ${
                 activeTab === cat 
                   ? 'bg-white text-slate-900 shadow-sm border border-slate-200' 
@@ -268,8 +298,8 @@ const BookmarkSection: React.FC<Props> = ({ bookmarks, setBookmarks }) => {
               }`}
             >
               {cat !== 'Wszystkie' && cat !== 'Ulubione' && (
-                <span className={CATEGORY_STYLES[cat as BookmarkCategory].color}>
-                  {CATEGORY_STYLES[cat as BookmarkCategory].icon}
+                <span className={getCatStyle(cat).color}>
+                  {getCatStyle(cat).icon}
                 </span>
               )}
               {cat}
@@ -293,11 +323,11 @@ const BookmarkSection: React.FC<Props> = ({ bookmarks, setBookmarks }) => {
 
       <div className="flex flex-col gap-8 min-h-[140px]">
         {activeTab === 'Wszystkie' && isGrouped ? (
-          CATEGORIES.map(cat => {
+          categories.map(cat => {
             const catBookmarks = bookmarks.filter(b => b.category === cat);
             if (catBookmarks.length === 0) return null;
             const isCollapsed = collapsedCategories.has(cat);
-            const style = CATEGORY_STYLES[cat];
+            const style = getCatStyle(cat);
 
             return (
               <div key={cat} className="flex flex-col gap-4">
@@ -319,10 +349,10 @@ const BookmarkSection: React.FC<Props> = ({ bookmarks, setBookmarks }) => {
                   {!isCollapsed && (
                     <button 
                       onClick={(e) => handleOpenAllInCategory(cat, e)}
-                      className="ml-4 px-3 py-1.5 bg-white text-[9px] font-black uppercase tracking-tight text-slate-500 rounded-xl border border-slate-200 hover:bg-slate-900 hover:text-white hover:border-slate-900 transition-all flex items-center gap-1.5"
+                      className="ml-4 px-3 py-1.5 bg-white text-[9px] font-black uppercase tracking-tight text-slate-500 rounded-xl border border-slate-200 hover:bg-slate-900 hover:text-white hover:border-slate-900 transition-all flex items-center gap-1.5 shadow-sm"
                     >
                       <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
-                      Otwórz wszystkie
+                      Otwórz wszystkie w nowych oknach
                     </button>
                   )}
                 </div>
@@ -382,26 +412,47 @@ const BookmarkSection: React.FC<Props> = ({ bookmarks, setBookmarks }) => {
                 />
               </div>
               <div className="space-y-3">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Kategoria</label>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                  {CATEGORIES.map(c => (
-                    <button
-                      key={c}
-                      type="button"
-                      onClick={() => setFormData({ ...formData, category: c })}
-                      className={`flex items-center gap-2 px-4 py-3 rounded-xl border-2 font-black text-[10px] uppercase transition-all tracking-tighter ${
-                        formData.category === c 
-                          ? 'bg-slate-900 text-white border-slate-900 shadow-lg' 
-                          : 'bg-white border-slate-50 text-slate-400 hover:border-slate-200 hover:text-slate-600'
-                      }`}
-                    >
-                      <span className={formData.category === c ? 'text-white' : CATEGORY_STYLES[c].color}>
-                        {CATEGORY_STYLES[c].icon}
-                      </span>
-                      {c}
-                    </button>
-                  ))}
+                <div className="flex justify-between items-center px-1">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Kategoria</label>
+                  <button 
+                    type="button" 
+                    onClick={() => setIsAddingNewCat(!isAddingNewCat)}
+                    className="text-[9px] font-black text-indigo-600 uppercase tracking-tight hover:underline"
+                  >
+                    {isAddingNewCat ? 'Wybierz istniejącą' : '+ Nowa kategoria'}
+                  </button>
                 </div>
+                
+                {isAddingNewCat ? (
+                  <input 
+                    type="text" 
+                    autoFocus
+                    value={newCategoryName}
+                    onChange={e => setNewCategoryName(e.target.value)}
+                    placeholder="Wpisz nazwę nowej kategorii..."
+                    className="w-full px-6 py-4 rounded-2xl border-2 border-indigo-100 bg-indigo-50/30 focus:bg-white focus:border-indigo-500 focus:outline-none font-bold text-slate-800 transition-all"
+                  />
+                ) : (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
+                    {categories.map(c => (
+                      <button
+                        key={c}
+                        type="button"
+                        onClick={() => setFormData({ ...formData, category: c })}
+                        className={`flex items-center gap-2 px-4 py-3 rounded-xl border-2 font-black text-[10px] uppercase transition-all tracking-tighter ${
+                          formData.category === c 
+                            ? 'bg-slate-900 text-white border-slate-900 shadow-lg' 
+                            : 'bg-white border-slate-50 text-slate-400 hover:border-slate-200 hover:text-slate-600'
+                        }`}
+                      >
+                        <span className={formData.category === c ? 'text-white' : getCatStyle(c).color}>
+                          {getCatStyle(c).icon}
+                        </span>
+                        <span className="truncate">{c}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
               <div className="flex gap-4 pt-6">
                 <button type="button" onClick={() => setIsEditing(false)} className="flex-1 px-6 py-4 rounded-2xl bg-slate-100 text-slate-500 font-black uppercase text-xs hover:bg-slate-200 transition-all">Anuluj</button>
